@@ -5,6 +5,8 @@
 
 #include <stdint.h>
 
+#define VIDEO_ADDRESS 0xa0000
+
 enum vga_shade {
         VGA_COLOR_BLACK = 0,
         VGA_COLOR_BLUE = 1,

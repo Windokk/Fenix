@@ -1,8 +1,11 @@
 #include "kernel.h"
 
+#include "drivers/vga.h"
+
 #include <string.h>
 
 struct render_context global_rctx;
+
 
 struct render_context* graphics_get_global_rctx(void)
 {
@@ -40,7 +43,7 @@ struct color graphics_color(uint32_t rgb)
 void graphics_plot_pixel(struct render_context *ctx, uint32_t x, uint32_t y,
 			 uint32_t vga_color)
 {
-	ctx->framebuffer[y * (ctx->pitch / sizeof(uint32_t)) + x] = vga_color;
+	
 	
 }
 

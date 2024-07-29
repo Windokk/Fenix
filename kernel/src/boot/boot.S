@@ -14,13 +14,19 @@ header_start:
     .long HEADER_LENGTH
     .long CHECKSUM
 
-    
+    .align 8
+
+    .word 5,1
+    .long 20
+    .long 1024
+    .long 768
+    .long 32
 
     // multiboot tags go here
 
     .short MULTIBOOT_HEADER_TAG_END
     .short 0    // flags, none set
-    .long 8     // size, including itself (short + short + long)
+    .long 0     // size, including itself (short + short + long)
 header_end:
 
 .code32

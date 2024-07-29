@@ -44,7 +44,7 @@ struct color graphics_color(uint32_t rgb);
  * @param color Pixel color
  */
 void graphics_plot_pixel(struct render_context *ctx, uint32_t x,
-	uint32_t y, uint32_t vga_color);
+	uint32_t y, uint32_t color);
 
 
 void graphics_init(void);

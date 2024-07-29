@@ -10,7 +10,7 @@
 
 
 
-#define VIDEO_START 0xb8000
+#define VIDEO_START 0xA0000
 #define VGA_LIGHT_GRAY 7
 
 
@@ -48,8 +48,6 @@ void kernel_main()
 {   
     graphics_init();
 
-    
-    graphics_plot_pixel(graphics_get_global_rctx(), 30,30, 15);
 
     while (1);
 }
