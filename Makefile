@@ -125,9 +125,9 @@ $(ISO_FILE): $(LIBC_A) $(FENIX_BIN)
 		echo menuentry \"Fenix\" { > build/isodir/boot/grub/grub.cfg; \
 		echo "	multiboot2 /boot/fenix.bin" >> build/isodir/boot/grub/grub.cfg; \
 		echo "}" >> build/isodir/boot/grub/grub.cfg; \
-		grub2-mkrescue -o fenix.iso build/isodir; \
+		grub2-mkrescue -o build/fenix.iso build/isodir; \
 		mkdir -p $(BOOTDIR)/grub; \
-		cp fenix.iso $(BOOTDIR)/fenix.iso; \
+		cp build/fenix.iso $(BOOTDIR)/fenix.iso; \
 		cp build/isodir/boot/grub/grub.cfg $(BOOTDIR)/grub/grub.cfg; \
 	else \
 		echo "The file is not multiboot"; \
@@ -138,6 +138,6 @@ $(ISO_FILE): $(LIBC_A) $(FENIX_BIN)
 
 # Clean rule to remove build artifacts
 clean:
-	@rm -rf $(BUILD_DIR) $(ISO_FILE)
+	@rm -rf $(BUILD_DIR)
 
 .PHONY: all clean

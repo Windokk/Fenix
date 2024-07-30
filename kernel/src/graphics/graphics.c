@@ -1,5 +1,4 @@
-#include "kernel.h"
-
+#include "graphics/graphics.h"
 #include "drivers/vga.h"
 
 #include <string.h>
@@ -52,12 +51,6 @@ void graphics_plot_pixel(struct render_context *ctx, uint32_t x, uint32_t y,
 void graphics_init(void)
 {
 	
-	global_rctx.framebuffer = (uint8_t *) fb_tag->framebuffer_addr;
-	global_rctx.width = fb_tag->framebuffer_width;
-	global_rctx.height = fb_tag->framebuffer_height;
-	global_rctx.pixel_width = fb_tag->framebuffer_bpp / 8;
-	global_rctx.pitch = fb_tag->framebuffer_pitch;
-	global_rctx.framebuffer_size = (global_rctx.height * global_rctx.pitch) +
-	                                (global_rctx.width * global_rctx.pixel_width);
+	
 									
 }

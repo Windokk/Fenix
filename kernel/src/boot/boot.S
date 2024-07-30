@@ -16,11 +16,14 @@ header_start:
 
     .align 8
 
-    .word 5,1
-    .long 20
-    .long 1024
-    .long 768
-    .long 32
+framebuffer_tag_start:  
+        .short MULTIBOOT_HEADER_TAG_FRAMEBUFFER
+        .short MULTIBOOT_HEADER_TAG_OPTIONAL
+        .long framebuffer_tag_end - framebuffer_tag_start
+        .long 1024
+        .long 768
+        .long 32
+framebuffer_tag_end:
 
     // multiboot tags go here
 
@@ -52,13 +55,23 @@ gdt_ptr:
          .short GDT_TABLE_SIZE - 1
          .long gdt_table
 
+.global multiboot_eax
+multiboot_eax:
+	.long 0
+
+.global multiboot_ebx
+multiboot_ebx:
+	.long 0
 
 .section .text
 .global _start
 .type _start, @function
 _start:
-
         movl $tmp_stack + KERNEL_BOOT_STACK_SIZE, %esp
+
+        movl %eax, multiboot_eax
+	movl %ebx, multiboot_ebx
+
 
         movl $low_pdpt, %eax
         or $(MMU_PRESENT | MMU_WRITABLE), %eax
@@ -107,7 +120,8 @@ page_directory_table_loop:
         movl $KERNEL_CR0, %eax
         movl %eax, %cr0
 
-        lgdt gdt_ptr
+        lgdt gdt_ptmovl %eax, multiboot_eax
+	movl %ebx, multiboot_ebxr
 
         ljmp $(KERNEL_GDT_ENTRY * GDT_ENTRY_SIZE), $_start64
 
@@ -128,7 +142,12 @@ _start64:
         movw %ax, %gs
         movw %ax, %ss
 
-        movq %rbx, %rdi
+        //movq %rbx, %rdi # Address of multiboot structure
+        
+        xorq %rdi, %rdi
+	movl multiboot_eax, %edi
+	xorq %rsi, %rsi
+	movl multiboot_ebx, %esi
 
         call kernel_premain
 

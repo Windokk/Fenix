@@ -1,1 +1,1 @@
-qemu-system-x86_64 -cdrom fenix.iso -serial stdio -m 1024M
+qemu-system-x86_64 -cdrom build/fenix.iso -serial stdio -m 1024M
