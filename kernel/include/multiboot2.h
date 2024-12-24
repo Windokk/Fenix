@@ -200,11 +200,19 @@ struct multiboot_mmap_entry
 };
 typedef struct multiboot_mmap_entry multiboot_memory_map_t;
 
-struct multiboot_tag
+typedef struct multiboot_tag
 {
   multiboot_uint32_t type;
   multiboot_uint32_t size;
-};
+} __attribute__((packed)) multiboot_tag_t;
+
+typedef struct multiboot_info
+{
+    multiboot_uint32_t size;
+    multiboot_uint32_t reserved;
+    multiboot_tag_t tags[];
+    // end tags
+} __attribute__((packed)) multiboot_info_t;
 
 struct multiboot_tag_string
 {
