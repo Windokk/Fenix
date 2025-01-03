@@ -2,11 +2,13 @@
 %define GDT_TSS         0x28 
 
 global long_mode_start
-global load_tss
 extern kernel_premain
 extern kernel_main
 
-extern pml4e_table
+extern p4_table
+extern p3_table
+extern p2_table
+extern p1_table
 extern kernel_stack_top
 extern gdt64
 extern gdt64.tss
@@ -21,12 +23,10 @@ bits 64
 
 long_mode_start:
     cli
-    ; Now we are using two mappings PML4E 0 and x0100 
-    ; we want to remove lower mapping on zero. To do that
-    ; we need to flush RIP with 64bit higher address (FFFF800000...) 
-    ; and also to reset GDT with higher address 
-    mov rax, flush_rip 
+    
+    mov rax, flush_rip
     jmp rax
+    
 flush_rip:
 
     mov rax, gdt64.pointer
@@ -59,10 +59,13 @@ flush_rip:
     mov ax, GDT_TSS
     ltr ax
 
-    
+    ; Pass the paging table addresses
+    mov rdx, p4_table
+    mov rcx, p3_table
+    mov r8,  p2_table
+    mov r9,  p1_table
 
     call kernel_premain
-
 
     call kernel_main
     

@@ -1,28 +1,36 @@
 extern long_mode_start
 
 %define KERNEL_VMA          0xFFFF800000000000
-%define PAGE_SIZE           4096
+%define PAGE_SIZE           0x1000
 %define KERNEL_STACK_SIZE   PAGE_SIZE*2
 
 section .text
 bits 32
 global start
 start:
-    ; Note: All addressing before long jump to long_mode_start MUST be
-    ; relative - substract KERNEL_VMA from all adresses
     
-    ; save eax and ebx (grub magic and mb info) into esi and edi
+    ; save eax and ebx (grub magic number and multiboot info) into edi and esi
     ; per GCC C ABI param specs 
     ; as it will be passed down to kernel main as arguments
-    mov esi, ebx
-    mov edi, eax
 
-    ; setup stack
     mov esp, (kernel_stack_top - KERNEL_VMA)
 
-    ; setup page entries to map kernel from KERNEL_VMA up to 2MB
-    call set_up_page_tables
-    ; setup cr4 and cr3 to enable paging
+    push eax
+    push ebx
+
+    call detect_cpuid
+
+    call check_long_mode
+
+    call setup_page_tables
+
+    pop ebx        ; Restore original ebx value into ebx
+    pop eax        ; Restore original eax value into eax
+
+    ; Move them to edi and esi respectively
+    mov edi, eax   ; Transfer original eax to edi
+    mov esi, ebx   ; Transfer original ebx to esi
+
     call enable_paging
 
     ; load the 64-bit GDT
@@ -30,34 +38,105 @@ start:
 
     ; jump to refresh RIP and new GDT
     jmp gdt64.kernel_code:(long_mode_start - KERNEL_VMA)
+    
 
-; Maps memory from 0x0000 -> 2MB and KERNEL_VMA ->2MB
-set_up_page_tables:
-    ; map 0th P4 entry to P3 table
+no_cpuid:
+    hlt
+
+    jmp no_cpuid
+
+
+no_longmode:
+    
+    hlt
+
+    jmp no_longmode
+
+; Check if CPUID is supported by attempting to flip the ID bit (bit 21) in
+; the FLAGS register. If we can flip it, CPUID is available.
+
+detect_cpuid:
+
+    ; Copy FLAGS in to EAX via stack
+    pushfd
+    pop eax
+
+    ; Copy to ECX as well for comparing later on
+    mov ecx, eax
+
+    ; Flip the ID bit
+    xor eax, 1 << 21
+
+    ; Copy EAX to FLAGS via the stack
+    push eax
+    popfd
+
+    ; Copy FLAGS back to EAX (with the flipped bit if CPUID is supported)
+    pushfd
+    pop eax
+
+    ; Restore FLAGS from the old version stored in ECX (i.e. flipping the ID bit
+    ; back if it was ever flipped).
+    push ecx
+    popfd
+
+    ; Compare EAX and ECX. If they are equal then that means the bit wasn't
+    ; flipped, and CPUID isn't supported.
+    xor eax, ecx
+    jz no_cpuid
+    ret
+
+
+check_long_mode:
+    mov eax, 0x80000000    ; Set the A-register to 0x80000000.
+    cpuid                  ; CPU identification.
+    cmp eax, 0x80000001    ; Compare the A-register with 0x80000001.
+    jb no_longmode         ; It is less, there is no long mode.
+
+    ; Now that we know that extended function is available we can use it to detect long mode:
+
+    mov eax, 0x80000001    ; Set the A-register to 0x80000001.
+    cpuid                  ; CPU identification.
+    test edx, 1 << 29      ; Test if the LM-bit, which is bit 29, is set in the D-register.
+    jz no_longmode         ; They aren't, there is no long mode.
+
+
+
+
+setup_page_tables:
+    ; Map the P4 entry to the P3 table (higher-half kernel mapping)
     mov eax, (p3_table - KERNEL_VMA)
-    or eax, 0b11 ; present + writable
+    or eax, 0b11  ; present + writable
     mov [(p4_table - KERNEL_VMA)], eax
 
-    ; and 0x100th to KERNEL_VMA
-    mov ecx, 0x100
-    mov [(p4_table - KERNEL_VMA) + ecx * 8], eax
+    mov [(p4_table - KERNEL_VMA) + 0x100 * 8], eax
 
-    ; map first P3 entry to P2 table
+    ; Map the P3 entry to the P2 table (higher-half kernel mapping)
     mov eax, (p2_table - KERNEL_VMA)
-    or eax, 0b11 ; present + writable
+    or eax, 0b11  ; present + writable
     mov [(p3_table - KERNEL_VMA)], eax
 
-    ; counter or 2MB tables
+    mov [(p3_table - KERNEL_VMA) + 0x100 * 8], eax
+
+    ; Map the P2 entry to the P1 table (higher-half kernel mapping)
+    mov eax, (p1_table - KERNEL_VMA)
+    or eax, 0b11  ; present + writable
+    mov [(p2_table - KERNEL_VMA)], eax
+
+    mov [(p2_table - KERNEL_VMA) + 0x100 * 8], eax
+
+    ; Map 4KB pages in the P1 table (higher-half mapping)
     mov ecx, 0
-.map_p2_table:
-    mov eax, 0x200000      ; 2MB page
-    mul ecx            ; start address of ecx-th page
-    or eax, 0b10000011 ; present + writable + huge
-    mov [(p2_table - KERNEL_VMA) + ecx * 8], eax ; map ecx-th entry
+
+higher_half_mapping:
+    mov eax, 0x1000      ; 4KB page
+    mul ecx              ; start address of ecx-th page
+    or eax, 0b11         ; present + writable
+    mov [(p1_table - KERNEL_VMA) + ecx * 8], eax ; map ecx-th entry
 
     inc ecx            ; increase counter
-    cmp ecx, 512       ; if counter == 512, the whole P2 table is mapped
-    jne .map_p2_table  ; else map the next entry
+    cmp ecx, 512       ; if counter == 512, the whole P1 table is mapped
+    jne higher_half_mapping  ; else map the next entry
 
     ret
 
@@ -85,22 +164,24 @@ enable_paging:
     ret
 
 
+
+
+
+
+section .bss
+align 4096
+global p4_table
+p4_table resq 512
+global p3_table
+p3_table resq 512
+global p2_table
+p2_table resq 512
+global p1_table
+p1_table resq 512
+
+
 section .data
 align 4096
-
-global p4_table
-p4_table:
-    times 512 dq 0 ; 0 temporary to p3_table
-global p3_table
-p3_table:
-    times 512 dq 0 ; 0th point to p2_table
-global p2_table
-p2_table: 
-    times 512 dq 0 ; 0th points to page
-global tmp_mem_bitmap
-tmp_mem_bitmap:
-    times 512 dq 0 ; temporary mem table 1bit = 4K total of 128MB
-
 global tss64
 global tss64.rsp0
 tss64:
@@ -127,6 +208,7 @@ global gdt64
 global gdt64.tss
 global gdt64.pointer
 gdt64:                           ; Global Descriptor Table (64-bit).
+align 8
 .null: equ $ - gdt64         ; The null descriptor.
     dw 0                         ; Limit (low).
     dw 0                         ; Base (low).
@@ -176,7 +258,7 @@ gdt64:                           ; Global Descriptor Table (64-bit).
     dq gdt64                     ; Base.
 
 section .bss
-align 4
+align 16
 kernel_stack_bottom:
     resb KERNEL_STACK_SIZE
 global kernel_stack_top

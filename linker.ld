@@ -4,7 +4,6 @@ KERNEL_LMA = 0x100000;
 KERNEL_VMA = 0xFFFF800000000000;
 
 ENTRY(start)
-
 SECTIONS
 {
     . = KERNEL_LMA;
@@ -48,4 +47,5 @@ SECTIONS
     }
 
     kernel_end = ALIGN(4K);
+
 }

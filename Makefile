@@ -2,7 +2,7 @@
 CCFLAGS = -Wall -Wextra -ffreestanding -nostdlib -mno-red-zone -g -mcmodel=large -m64
 ASFLAGS = -g
 LDFLAGS = -nostdlib -mcmodel=large
-NASM_FLAGS := -w-number-overflow -felf64
+NASM_FLAGS := -w-number-overflow -felf64 -g
 
 # Define file paths
 BUILD_DIR = build
