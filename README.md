@@ -13,5 +13,25 @@
 
 ## Roadmap : (Last Updated Dec 22 2024)
 
-
+[x] Booting from Grub 2
+[x] Paging enabling (kernel mapped in higher half) and long mode jump (x86_64) 
+[x] Serial driver (printing to console)
+[x] Vesa and Memory map infos recognition
+[x] Paging : 
+    [x] Physical memory management
+    [x] Virtual memory management (4kb pages)
+    [x] Kernel, user space and fraebuffer mapping
+[x] Interrupts :
+    [x] IDT
+    [x] PIC
+[-] Drivers :
+    [x] Serial
+    [-] VESA
+    [x] Keyboard
+    [ ] Mouse
+    [ ] RTC
+    [ ] PIT
+[ ] Userland :
+    [ ] Shell
+    [ ] Graphics
 
