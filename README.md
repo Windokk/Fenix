@@ -24,9 +24,9 @@
 - [x] Interrupts :
     - [x] IDT
     - [x] PIC
-- [-] Drivers :
+- [ ] Drivers :
     - [x] Serial
-    - [-] VESA
+    - [ ] VESA
     - [x] Keyboard
     - [ ] Mouse
     - [ ] RTC
