@@ -1,5 +1,7 @@
 #include "memory/paging_frames.h"
 
+#include "stdio.h"
+
 uint64_t mmu_nframes; // Number of entries in bitset
 uint32_t *mmu_frames; // Start address of bitset
 

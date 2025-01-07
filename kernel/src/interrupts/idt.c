@@ -1,0 +1,148 @@
+#include "interrupts/idt.h"
+
+#include "stdio.h"
+
+#include "interrupts/pic.h"
+
+#include "drivers/keyboard.h"
+#include "drivers/mouse.h"
+
+void enable_interrupts() {
+    asm volatile ("sti");
+}
+
+void disable_interrupts() {
+    asm volatile ("cli");
+}
+
+
+static idt_gate_t idt[IDT_ENTRIES];
+static idt_register_t idt_reg;
+
+static const char *exception_strs[] = {
+        //  Intel 64 Manual Volume 2 - Table 6-1 -> Exceptions and Interrupts
+        "#DE: Integer Divide-by-Zero Exception",
+        "#DB: Debug exception",
+        "Non-maskable interrupt",
+        "#BP: Breakpoint Exception (INT 3)",
+        "#OF: Overflow Exception (INTO instruction)",
+        "#BR: Bound-Range Exception (BOUND instruction)",
+        "#UD: Invalid opcode exception",
+        "#NM: Device-Not-Available Exception",
+        "#DF: Double-Fault Exception",
+        "Coprocessor segment overrun (reserved in AMD64)",
+        "#TS: Invalid-TSS Exception",
+        "#NP: Segment-Not-Present Exception",
+        "#SS: Stack exception",
+        "#GP: General-Protection exception",
+        "#PF: Page-Fault exception",
+        "(Reserved)",
+        "#MF: x87 FPU Floating-Point error",
+        "#AC: Alignment-Check exception",
+        "#MC: Machine-Check exception",
+        "#XM: SIMD Floating-Point exception",
+        "#VE: Virtualisation Exception",
+        "#CP: Control-Protection Exception",
+};
+
+inline static void load_idt() {
+    idt_reg.base = (uint64_t) &idt;
+    idt_reg.length = IDT_ENTRIES * sizeof(idt_gate_t) - 1;
+    __asm__("lidt %0" : : "m"(idt_reg));
+}
+
+static void config_idt_vector(uint16_t n, uint64_t handler) {
+    idt[n].selector = 0x08;
+    idt[n].ptr_low  = (uint16_t) handler;
+    idt[n].ptr_mid  = (uint16_t) (handler >> 16);
+    idt[n].ptr_high = (uint32_t) (handler >> 32);
+
+    idt[n].opts.stack_OK  = 0; // do not switch stack
+    idt[n].opts.present   = 1; // are we valid
+    idt[n].opts.DPL       = 3; // priv to call int handler
+    idt[n].opts.gate_type = 0x01; // 1 = interrupt, 2 = trap
+    idt[n].opts.ONES      = 0x07;
+    idt[n].opts.ZERO      = 0;
+    idt[n].opts.ZEROS     = 0;
+
+    idt[n]._1_reserved = 0;
+    idt[n]._2_reserved = 0;
+    idt[n]._type       = 0;
+}
+
+void neuil(){
+    printf("Neuil \n");
+}
+
+void idt_init() {
+
+    config_idt_vector(0, (uintptr_t) vector0);
+    config_idt_vector(1, (uintptr_t) vector1);
+    config_idt_vector(2, (uintptr_t) vector2);
+    config_idt_vector(3, (uintptr_t) vector3);
+    config_idt_vector(4, (uintptr_t) vector4);
+    config_idt_vector(5, (uintptr_t) vector5);
+    config_idt_vector(6, (uintptr_t) vector6);
+    config_idt_vector(7, (uintptr_t) vector7);
+    config_idt_vector(8, (uintptr_t) vector8);
+    config_idt_vector(10, (uintptr_t) vector10);
+    config_idt_vector(11, (uintptr_t) vector11);
+    config_idt_vector(12, (uintptr_t) vector12);
+    config_idt_vector(13, (uintptr_t) vector13);
+    config_idt_vector(14, (uintptr_t) vector14);
+    config_idt_vector(16, (uintptr_t) vector16);
+    config_idt_vector(17, (uintptr_t) vector17);
+    config_idt_vector(18, (uintptr_t) vector18);
+    config_idt_vector(19, (uintptr_t) vector19);
+    config_idt_vector(20, (uintptr_t) vector20);
+    config_idt_vector(21, (uintptr_t) vector21);
+    // timer
+    config_idt_vector(32, (uintptr_t) vector32);
+    // keyboard
+    config_idt_vector(33, (uintptr_t) vector33);
+
+    config_idt_vector(34, (uintptr_t) vector34);
+    config_idt_vector(35, (uintptr_t) vector35);
+    config_idt_vector(36, (uintptr_t) vector36);
+    config_idt_vector(37, (uintptr_t) vector37);
+    config_idt_vector(38, (uintptr_t) vector38);
+    config_idt_vector(39, (uintptr_t) vector39);
+    config_idt_vector(40, (uintptr_t) vector40);
+    config_idt_vector(41, (uintptr_t) vector41);
+    config_idt_vector(42, (uintptr_t) vector42);
+    config_idt_vector(43, (uintptr_t) vector43);
+    // mouse
+    config_idt_vector(44, (uintptr_t) vector44);
+
+    printf("Loading IDT\n");
+    load_idt();
+}
+
+
+void interrupt_handler(isr_ctx_t *regs) {
+
+    uint8_t int_no = regs->int_no;
+
+    if (int_no == 33) {
+        pic_mask_irq(PIC_KEYBOARD_INTERRUPT);
+        keyboard_handle_irq();
+        pic_unmask_irq(PIC_KEYBOARD_INTERRUPT);
+    }
+    else if(int_no == 44){
+        
+        pic_mask_irq(PIC_PS2_MOUSE_INTERRUPT);
+        mouse_handle_irq();
+        pic_unmask_irq(PIC_PS2_MOUSE_INTERRUPT);
+    }
+    else {
+        
+        disable_interrupts();
+
+        printf("Error: %s, Error Code: 0x%x", exception_strs[int_no], regs->error_code);
+
+        for (;;) {
+            asm volatile ("hlt");
+        }
+    }
+
+}

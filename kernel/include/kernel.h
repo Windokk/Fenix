@@ -1,8 +1,7 @@
 #ifndef __KERNEL_H
 #define __KERNEL_H
 
-#include "drivers/serial.h"
-#include "drivers/vesa.h"
+#include "common.h"
 
 void HALT_AND_CATCH_FIRE(const char *fmt, ...);
 

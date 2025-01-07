@@ -9,6 +9,7 @@
 void printf(const char* format, ...);
 char toupper(char c);
 void to_hex(unsigned int value, char* buffer, bool uppercase);
+void ftoa(float value, char* buffer, int precision);
 void vprintf(const char* format, va_list args);
 
 

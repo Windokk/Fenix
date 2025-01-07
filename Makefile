@@ -18,12 +18,13 @@ FENIX_BIN = $(BUILD_DIR)/fenix.bin
 
 ISO_FILE = fenix.iso
 
-KERNEL_SRC = $(shell find kernel/src -type f \( -name "*.c" -or -name "*.s" \) )
+KERNEL_SRC = $(shell find kernel/src -type f -name "*.c")
+KERNEL_SRC += $(shell find kernel/src/interrupts -type f -name "*.asm")
 KERNEL_OBJ = $(patsubst kernel/src/%,build/kernel/%.o,$(KERNEL_SRC))
 KERNEL_INC = $(shell find kernel/include -type f \( -name "*.h" \) )
 KERNEL_BUILD_DIR = $(BUILD_DIR)/kernel
 KERNEL_C_O = $(KERNEL_BUILD_DIR)/%.c.o
-KERNEL_S_O = $(KERNEL_BUILD_DIR)/%.s.o
+KERNEL_ASM_O = $(KERNEL_BUILD_DIR)/%.asm.o
 
 BOOT_ASM_SRC = $(shell find kernel/src/boot -type f \( -name "*.asm" \) )
 BOOT_ASM_OBJ = $(patsubst kernel/src/boot/%.asm, build/boot/%.o, $(BOOT_ASM_SRC))
@@ -47,10 +48,12 @@ build/boot/%.o: kernel/src/boot/%.asm
 	@$(NASM) $(NASM_FLAGS) $< -o $@
 #
 
-# Rule to build kernel's .s.o files
-$(KERNEL_S_O): kernel/src/%.S
+# Rule to build kernel's assembly files
+$(KERNEL_ASM_O): kernel/src/%.asm
 	@mkdir -p "$(dir $@)"
-	@$(AS) -c $(ASFLAGS) -o $@ $<
+	@$(NASM) $(NASM_FLAGS) -o $@ $<
+#
+
 # Rule to build kernel's .c.o files
 $(KERNEL_C_O): kernel/src/%.c
 	@mkdir -p "$(dir $@)"
@@ -59,7 +62,7 @@ $(KERNEL_C_O): kernel/src/%.c
 
 
 # Rule to link boot.o and kernel.o to create fenix.bin
-$(FENIX_BIN): $(KERNEL_OBJ) $(BOOT_ASM_OBJ) $(ASM_OBJ)
+$(FENIX_BIN): $(KERNEL_OBJ) $(BOOT_ASM_OBJ)
 	@$(CC) -I$(INCDIR) $(LDFLAGS) -T linker.ld -o $@ $^ 
 	@echo "Built fenix.bin"
 	

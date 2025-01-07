@@ -3,6 +3,17 @@
 #include "kernel.h"
 #include "memory/paging_pages.h"
 
+#include "interrupts/pic.h"
+#include "interrupts/idt.h"
+
+#include "drivers/keyboard.h"
+#include "drivers/mouse.h"
+#include "drivers/ps2.h"
+#include "drivers/serial.h"
+#include "drivers/vesa.h"
+
+#include "graphics/gfx.h"
+
 void HALT_AND_CATCH_FIRE(const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
@@ -67,17 +78,23 @@ memory_infos_t parse_multiboot2_memory(multiboot_info_t *mbi) {
 
 // First parameter is passed via rdi, second via rsi
 void kernel_premain(unsigned long magic, multiboot_info_t* mbi_phys) {
-    // Store the pointers globally or use them directly
-    
+
+    pic_disable_all_irq();
 
     init_serial();
 
+    printf("KERNEL_PREMAIN\n");
+
     if(magic != MULTIBOOT2_BOOTLOADER_MAGIC){
-        HALT_AND_CATCH_FIRE("--------- MAGIC NUMBER NOT RECOGNIZED ! ---------\nMAGIC NUMBER : 0x%X\n", (magic));
+        HALT_AND_CATCH_FIRE("--------- MAGIC NUMBER NOT RECOGNIZED ! ---------\nMAGIC NUMBER RECIEVED : 0x%X\n", (magic));
     }
 
-    init_kernel_vesa(mbi_phys);
-    
+    printf("0x%X", mbi_phys);
+
+    init_kernel_vesa(TO_VMA_PTR(multiboot_info_t *, mbi_phys));
+
+    printf("---------- Memory Initialization ----------\n\n");
+
     memory_infos_t mem = parse_multiboot2_memory(mbi_phys);
 
     //Physical Memory
@@ -86,30 +103,57 @@ void kernel_premain(unsigned long magic, multiboot_info_t* mbi_phys) {
     //Virtual Memory
     init_paging();
 
-    uint32_t color = 0xFFFFFF; // White
 
-    // Rectangle dimensions
-    int startX = 20, startY = 20;
-    int rectWidth = 40, rectHeight = 10;
+    printf("\n\n");
 
-    // Loop over the area of the rectangle and set each pixel
-    for (int y = startY; y < startY + rectHeight; y++) {
-        for (int x = startX; x < startX + rectWidth; x++) {
-            ((uint32_t*)vesa_video_info.virt_addr)[y * vesa_video_info.width + x] = color;
-        }
-    }
+    printf("------------ PIC Initialization ------------\n\n");
+
+
+    pic_init(false);
+
+    printf("\n\n");
+
+    printf("------------ IDT Initialization ------------\n\n");
+
+    // Setup Interrupt Descriptor table
+    idt_init();
+
+    printf("\n\n");
+
+    disable_interrupts();
+
+    // Unmask the 8259 Interrupt (necessary for mouse interrupts)
+    pic_unmask_irq(PIC_8259_INTERRUPT);
+
+    enable_interrupts();
+
+    printf("\n\n");
+
+    printf("------------ PS2 Initialization ------------\n\n");
+
+    ps2_init();
+
+    printf("\n\n");
+    
+
+    printf("--------- Keyboard Initialization ----------\n\n");
+
+    keyboard_enable();
+
+    printf("\n\n");
+
+    printf("---------- Mouse Initialization ------------\n\n");
+
+    mouse_enable();
+
+    printf("\n\n");
 
     
-    /*printf("Framebuffer: addr=%X, virt_addr=%X, width=%d, height=%d, bpp=%d\n", 
-           vesa_video_info.addr,
-           vesa_video_info.virt_addr,
-           vesa_video_info.width,
-           vesa_video_info.height, 
-           vesa_video_info.bits);
+
+    enable_interrupts();
+
     
 
-    //Plot pixel at 20 20 (white)*/
-    
 }
 
 void kernel_main()

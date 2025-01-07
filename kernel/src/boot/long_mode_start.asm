@@ -22,12 +22,16 @@ section .text
 bits 64
 
 long_mode_start:
-    cli
-    
-    mov rax, flush_rip
+    cli  ; Clear interrupts (for initialization phase)
+
+    mov rax, flush_rip ; Load the address of flush_rip
+
+    ; If it is mapped, jump to flush_rip
     jmp rax
     
 flush_rip:
+
+    hlt
 
     mov rax, gdt64.pointer
     lgdt [rax]
@@ -58,12 +62,6 @@ flush_rip:
 
     mov ax, GDT_TSS
     ltr ax
-
-    ; Pass the paging table addresses
-    mov rdx, p4_table
-    mov rcx, p3_table
-    mov r8,  p2_table
-    mov r9,  p1_table
 
     call kernel_premain
 

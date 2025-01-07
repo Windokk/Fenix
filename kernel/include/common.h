@@ -30,5 +30,57 @@ typedef unsigned long size_t;
 
 #define NULL ((void *)0)
 
+#define UINT64_MAX		(__UINT64_C(18446744073709551615))
 
-#endif
+#define CHAR_BIT	8
+
+#define ARR_SIZE(arr)		sizeof(arr)/sizeof(arr[0])
+
+#define abs(num) (num >= 0 ? num : num*-1)
+
+#define PI 3.141592653589793f
+
+
+#define SQRT_SINGLE(num) ({              \
+    float result;                        \
+    __asm__(                             \
+        "sqrtss %1, %0"                  \
+        : "=x" (result)                   \
+        : "x" (num)                       \
+    );                                    \
+    result;                              \
+})
+
+#define SQRT_DOUBLE(num) ({             \
+    double result;                      \
+    __asm__(                            \
+        "sqrtsd %1, %0"                 \
+        : "=x" (result)                  \
+        : "x" (num)                      \
+    );                                   \
+    result;                             \
+})
+
+#define sqrt(num) (                 \
+    sizeof(num) == sizeof(float) ?    \
+        SQRT_SINGLE(num) :            \
+        (sizeof(num) == sizeof(double) ? \
+            SQRT_DOUBLE(num) : 0.0) \
+)
+
+
+#define COS(x) ({ \
+    float result; \
+    __asm__ ( \
+        "fld %1;"                 /* Load x into FPU stack */ \
+        "fcos;"                   /* Compute cosine */ \
+        "fstp %0;"                /* Store result and pop from FPU stack */ \
+        : "=m"(result)            /* Output: result stored in memory */ \
+        : "t"(x)                  /* Input: x in the FPU stack (t register) */ \
+    ); \
+    result; \
+})
+
+
+
+#endif 

@@ -104,39 +104,33 @@ check_long_mode:
 
 
 setup_page_tables:
-    ; Map the P4 entry to the P3 table (higher-half kernel mapping)
-    mov eax, (p3_table - KERNEL_VMA)
-    or eax, 0b11  ; present + writable
-    mov [(p4_table - KERNEL_VMA)], eax
+    ; Map the P4 entry to the P3 table
+    mov eax, p3_table - KERNEL_VMA     ; LMA adress of p3 table
+    or eax, 0b11                       ; Present + Writable
+    mov [p4_table - KERNEL_VMA], eax   ; Store LMA adress of p3 table into p4 table's (physical adress) first entry
 
-    mov [(p4_table - KERNEL_VMA) + 0x100 * 8], eax
+    ; Map the P3 entry to the P2 table
+    mov eax, p2_table - KERNEL_VMA    ; LMA adress of p2 table
+    or eax, 0b11                       ; Present + Writable
+    mov [p3_table - KERNEL_VMA], eax   ; Store in P3 entry
 
-    ; Map the P3 entry to the P2 table (higher-half kernel mapping)
-    mov eax, (p2_table - KERNEL_VMA)
-    or eax, 0b11  ; present + writable
-    mov [(p3_table - KERNEL_VMA)], eax
-
-    mov [(p3_table - KERNEL_VMA) + 0x100 * 8], eax
-
-    ; Map the P2 entry to the P1 table (higher-half kernel mapping)
-    mov eax, (p1_table - KERNEL_VMA)
-    or eax, 0b11  ; present + writable
-    mov [(p2_table - KERNEL_VMA)], eax
-
-    mov [(p2_table - KERNEL_VMA) + 0x100 * 8], eax
+    ; Map the P2 entry to the P1 table
+    mov eax, p1_table - KERNEL_VMA    ; Adjust for virtual address
+    or eax, 0b11                       ; Present + Writable
+    mov [p2_table - KERNEL_VMA], eax   ; Store in P2 entry
 
     ; Map 4KB pages in the P1 table (higher-half mapping)
-    mov ecx, 0
+    mov ecx, 0             ; Page index
 
 higher_half_mapping:
-    mov eax, 0x1000      ; 4KB page
-    mul ecx              ; start address of ecx-th page
-    or eax, 0b11         ; present + writable
-    mov [(p1_table - KERNEL_VMA) + ecx * 8], eax ; map ecx-th entry
+    mov eax, 0x1000        ; 4KB page size
+    mul ecx                ; Calculate the physical address of the ecx-th page
+    or eax, 0b11           ; Present + Writable
+    mov [p1_table - KERNEL_VMA + ecx * 8], eax  ; Store the page entry (adjusted for virtual address)
 
-    inc ecx            ; increase counter
-    cmp ecx, 512       ; if counter == 512, the whole P1 table is mapped
-    jne higher_half_mapping  ; else map the next entry
+    inc ecx
+    cmp ecx, 512           ; 512 entries for a 2MB region
+    jne higher_half_mapping
 
     ret
 
@@ -160,6 +154,15 @@ enable_paging:
     mov eax, cr0
     or eax, 1 << 31
     mov cr0, eax
+
+
+    mov eax, cr0
+    and ax, 0xFFFB		;clear coprocessor emulation CR0.EM
+    or ax, 0x2			;set coprocessor monitoring  CR0.MP
+    mov cr0, eax
+    mov eax, cr4
+    or ax, 3 << 9		;set CR4.OSFXSR and CR4.OSXMMEXCPT at the same time
+    mov cr4, eax
 
     ret
 

@@ -62,18 +62,28 @@ static void init_paging_user() {
 
 static void init_paging_video() {
   uint64_t video_framebuffer = vesa_video_info.addr;
-  printf("Video memory 0x%X\n", video_framebuffer);
+  uint64_t framebuffer_size = (uint32_t)vesa_video_info.pitch * vesa_video_info.height;
+  uint64_t num_pages = (framebuffer_size + PAGE_SIZE - 1) / PAGE_SIZE;
 
+  // Initialize the PDPE and PDE structures for the video memory mapping
   memset(&pdpe_video, 0, sizeof(pdpe_t) * 512);
   memset(&pde_video, 0, sizeof(pde_t) * 512);
+  memset(&pte_video, 0, sizeof(pte_t) * 512);
 
-  pml4e[0x180].all = TO_PHYS_U64(&pdpe_video) | 3; // KERNEL_VMA: Present + Write (0x180 : KERNEL_VIDEO_MEMORY)
-  pdpe_video[0].all = TO_PHYS_U64(&pde_video) | 3; 
-  // Dummy way : map whole PDE ... (more than needed but it's simpel enough)
-  // TODO : if user have memory on this address - there will be a PROBLEM :D
-  for (uint64_t i=0; i<256; i++) {
-    pde_video[i].all = (video_framebuffer + (i * PAGE_SIZE)) | 0x83; // Present + Write + Large (2MB)
-  }  
+  // Set up the PML4E entry for the video memory region
+  pml4e[0x180].all = TO_PHYS_U64(&pdpe_video) | PAGE_PRESENT_CPL0; // Present + Write (Kernel mode access)
+
+  // Link the PDPE to the PDE
+  pdpe_video[0].all = TO_PHYS_U64(&pde_video) | PAGE_PRESENT_CPL0;
+  
+  // Link the PDE to the PTE
+  pde_video[0].all = TO_PHYS_U64(&pte_video) | PAGE_PRESENT_CPL0;
+
+  // Map the framebuffer into the PTE. This assumes the framebuffer doesn't exceed 256 pages.
+  // Each page is 4KB, so 256 pages can map up to 1MB of video memory.
+  for (uint64_t i = 0; i < num_pages; i++) {
+      pte_video[i].all = (video_framebuffer + (i * PAGE_SIZE)) | PAGE_PRESENT_CPL0; // Present + Write
+  }
 }
 
 void init_paging(){

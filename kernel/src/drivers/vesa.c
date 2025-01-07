@@ -2,6 +2,8 @@
 
 #include "kernel.h"
 
+#include "stdio.h"
+
 struct video_info_struct vesa_video_info;
 
 static void extract_framebuffer_info(multiboot_info_t *mbi) {
@@ -22,7 +24,20 @@ static void extract_framebuffer_info(multiboot_info_t *mbi) {
         vesa_video_info.bits = tagfb->common.framebuffer_bpp;
         vesa_video_info.pitch = tagfb->common.framebuffer_pitch;
         vesa_video_info.type = tagfb->common.framebuffer_type;
-        
+
+        printf("VESA Frambuffer virtual adress : 0x%X\n", vesa_video_info.virt_addr);
+
+        printf("VESA Frambuffer adress : 0x%X\n", vesa_video_info.addr);
+
+        printf("VESA Framebuffer width : %d\n", vesa_video_info.width);
+
+        printf("VESA Framebuffer height : %d\n", vesa_video_info.height);
+
+        printf("VESA Framebuffer bpp : %d\n", vesa_video_info.bits);
+
+        printf("VESA Framebuffer pitch : %d\n", vesa_video_info.pitch);
+
+        printf("VESA Framebuffer type : %d\n", vesa_video_info.type);
       }
   }
 }

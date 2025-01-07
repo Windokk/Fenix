@@ -42,6 +42,30 @@ void to_hex(unsigned int value, char* buffer, bool uppercase) {
     buffer[i] = '\0'; // Null-terminate the string
 }
 
+void ftoa(float value, char* buffer, int precision) {
+    int int_part = (int)value;
+    float frac_part = value - int_part;
+
+    // Convert integer part to string
+    itoa(int_part, buffer, 10);
+    
+    // If precision > 0, handle fractional part
+    if (precision > 0) {
+        // Add decimal point
+        char* ptr = buffer + strlen(buffer); // Go to end of the string
+        *ptr++ = '.';
+
+        // Multiply the fractional part by 10^precision
+        for (int i = 0; i < precision; i++) {
+            frac_part *= 10;
+            int frac_digit = (int)frac_part;
+            *ptr++ = '0' + frac_digit; // Convert to character
+            frac_part -= frac_digit; // Remove the integer part
+        }
+        *ptr = '\0'; // Null-terminate the string
+    }
+}
+
 void vprintf(const char* format, va_list args) {
     uint8_t pad = 0;
     char padchar = ' ';
@@ -60,7 +84,7 @@ void vprintf(const char* format, va_list args) {
                 serial_print((char*)va_arg(args, char*));
                 format++;
             } else if (*format == 'd' || *format == 'i') {
-                int value = va_arg(args, int); // Use `int` for signed integers
+                int value = va_arg(args, int);
                 if (value < 0) {
                     write_serial('-');
                     value = -value;
@@ -73,19 +97,23 @@ void vprintf(const char* format, va_list args) {
                 itoa(value, buffer, 10);
                 serial_print(buffer);
                 format++;
-            } else if (*format == 'x') {  // Hexadecimal lowercase
+            } else if (*format == 'x') {
                 unsigned int value = va_arg(args, unsigned int);
-                to_hex(value, buffer, false);  // Convert to lowercase hex
+                to_hex(value, buffer, false);
                 serial_print(buffer);
                 format++;
-            }
-            else if (*format == 'X') {  // Hexadecimal uppercase
+            } else if (*format == 'X') {
                 unsigned int value = va_arg(args, unsigned int);
-                to_hex(value, buffer, true);  // Convert to uppercase hex
+                to_hex(value, buffer, true);
                 serial_print(buffer);
                 format++;
-            }
-            else if (*format >= '0' && *format <= '9') {
+            } else if (*format == 'f') {  // Handle float values
+                float value = va_arg(args, double); // va_arg promotes float to double
+                int precision = 6;  // Default precision, you can adjust it
+                ftoa(value, buffer, precision); // Convert float to string
+                serial_print(buffer);
+                format++;
+            } else if (*format >= '0' && *format <= '9') {
                 if (*format == '0') {
                     padchar = '0';
                     format++;
@@ -94,7 +122,6 @@ void vprintf(const char* format, va_list args) {
                     pad = pad * 10 + (*format++ - '0');
                 }
             } else {
-                // Unsupported specifier
                 write_serial('%');
                 write_serial(*format++);
             }
