@@ -7,7 +7,7 @@
 <a href="LICENSE"><img src="https://img.shields.io/static/v1?label=License&message=GNU GPL V3&logo=gnu&color=blue" href="https://www.gnu.org/licenses/gpl-3.0.html" width="200"/></a>
 <br>
 <br>
-### A Unix-like Minimalistic Operating Software (x84_64)
+### A Unix-like Minimalistic Operating System (x84_64)
 <br>
 </div>
 
