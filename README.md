@@ -33,7 +33,7 @@
 ### Phase 2 — Visible Kernel 🔧 **(current)**
 - [x] Text rendering (`gfx_draw_text` using bitmap font)
 - [x] `printf` output redirected to framebuffer (alongside serial)
-- [ ] RTC driver (read real-time clock)
+- [x] RTC driver (read real-time clock)
 - [ ] PIT driver (timer interrupts, basic tick counter)
 - [ ] Basic on-screen debug console (scrollable text output)
 
