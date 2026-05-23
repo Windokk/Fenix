@@ -11,7 +11,7 @@
 <br>
 </div>
 
-## Roadmap (Last Updated May 2025)
+## Roadmap (Last Updated May 2026)
 
 ### Phase 1 — Foundation ✅
 - [x] Multiboot2 boot via GRUB 2
