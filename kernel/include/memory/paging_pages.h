@@ -122,12 +122,12 @@ static pde_t   pde_user[512] __attribute__((aligned(4096)));
 static pte_t   pte_user[512] __attribute__((aligned(4096)));
 
 static pdpe_t  pdpe_krnluser[512] __attribute__((aligned(4096)));
-static pdpe_t  pde_krnluser[512] __attribute__((aligned(4096)));
+static pde_t  pde_krnluser[512] __attribute__((aligned(4096)));
 static pte_t   pte_krnluser[512] __attribute__((aligned(4096)));
 
 static pdpe_t  pdpe_video[512] __attribute__((aligned(4096)));
 static pde_t   pde_video[512] __attribute__((aligned(4096)));
-static pte_t   pte_video[512] __attribute__((aligned(4096)));
+static pte_t   pte_video[1024] __attribute__((aligned(4096)));
 
 
 

@@ -31,8 +31,6 @@ long_mode_start:
     
 flush_rip:
 
-    hlt
-
     mov rax, gdt64.pointer
     lgdt [rax]
 

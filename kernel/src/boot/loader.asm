@@ -99,8 +99,7 @@ check_long_mode:
     cpuid                  ; CPU identification.
     test edx, 1 << 29      ; Test if the LM-bit, which is bit 29, is set in the D-register.
     jz no_longmode         ; They aren't, there is no long mode.
-
-
+    ret
 
 
 setup_page_tables:
@@ -118,6 +117,11 @@ setup_page_tables:
     mov eax, p1_table - KERNEL_VMA    ; Adjust for virtual address
     or eax, 0b11                       ; Present + Writable
     mov [p2_table - KERNEL_VMA], eax   ; Store in P2 entry
+
+    ; Map the higher-half P4 entry (index 256) for KERNEL_VMA = 0xFFFF800000000000
+    mov eax, p3_table - KERNEL_VMA
+    or eax, 0b11
+    mov [p4_table - KERNEL_VMA + 256 * 8], eax
 
     ; Map 4KB pages in the P1 table (higher-half mapping)
     mov ecx, 0             ; Page index
@@ -193,8 +197,8 @@ tss64.rsp0:
     times 3 dq 0 ; RSPn
     dq 0 ; Reserved
 interrupt_stack_table:
-    dq ist_stack_1 ; IST1, NMI
-    dq ist_stack_2 ; IST2, Double fault
+    dq ist_stack_1_top ; IST1, NMI
+    dq ist_stack_2_top ; IST2, Double fault
     dq 0 ; IST3
     dq 0 ; IST4
     dq 0 ; IST5
@@ -266,7 +270,11 @@ kernel_stack_bottom:
     resb KERNEL_STACK_SIZE
 global kernel_stack_top
 kernel_stack_top:
-    resb PAGE_SIZE
+
 ist_stack_1:
     resb PAGE_SIZE
+ist_stack_1_top:
+
 ist_stack_2:
+    resb PAGE_SIZE
+ist_stack_2_top:

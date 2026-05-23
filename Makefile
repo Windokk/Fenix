@@ -72,7 +72,7 @@ $(FENIX_BIN): $(KERNEL_OBJ) $(BOOT_ASM_OBJ)
 
 # Rule to create the ISO file
 $(ISO_FILE): $(FENIX_BIN)
-	@if grub2-file --is-x86-multiboot2 build/fenix.bin; then \
+	@if grub-file --is-x86-multiboot2 build/fenix.bin; then \
 		echo "Multiboot confirmed"; \
 		mkdir -p build/isodir; \
 		mkdir -p build/isodir/boot; \
@@ -81,7 +81,7 @@ $(ISO_FILE): $(FENIX_BIN)
 		echo menuentry \"Fenix\" { > build/isodir/boot/grub/grub.cfg; \
 		echo "	multiboot2 /boot/fenix.bin" >> build/isodir/boot/grub/grub.cfg; \
 		echo "}" >> build/isodir/boot/grub/grub.cfg; \
-		grub2-mkrescue -o build/fenix.iso build/isodir; \
+		grub-mkrescue -o build/fenix.iso build/isodir; \
 		mkdir -p $(BOOTDIR)/grub; \
 		cp build/fenix.iso $(BOOTDIR)/fenix.iso; \
 		cp build/isodir/boot/grub/grub.cfg $(BOOTDIR)/grub/grub.cfg; \

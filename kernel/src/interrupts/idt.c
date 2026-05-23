@@ -6,6 +6,7 @@
 
 #include "drivers/keyboard.h"
 #include "drivers/mouse.h"
+#include "drivers/rtc.h"
 
 void enable_interrupts() {
     asm volatile ("sti");
@@ -128,8 +129,11 @@ void interrupt_handler(isr_ctx_t *regs) {
         keyboard_handle_irq();
         pic_unmask_irq(PIC_KEYBOARD_INTERRUPT);
     }
+    else if (int_no == 40) {
+        rtc_handle_irq();
+    }
     else if(int_no == 44){
-        
+
         pic_mask_irq(PIC_PS2_MOUSE_INTERRUPT);
         mouse_handle_irq();
         pic_unmask_irq(PIC_PS2_MOUSE_INTERRUPT);

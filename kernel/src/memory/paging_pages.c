@@ -68,22 +68,23 @@ static void init_paging_video() {
   // Initialize the PDPE and PDE structures for the video memory mapping
   memset(&pdpe_video, 0, sizeof(pdpe_t) * 512);
   memset(&pde_video, 0, sizeof(pde_t) * 512);
-  memset(&pte_video, 0, sizeof(pte_t) * 512);
+  memset(&pte_video, 0, sizeof(pte_t) * 1024);
 
   // Set up the PML4E entry for the video memory region
-  pml4e[0x180].all = TO_PHYS_U64(&pdpe_video) | PAGE_PRESENT_CPL0; // Present + Write (Kernel mode access)
+  pml4e[0x180].all = TO_PHYS_U64(&pdpe_video) | PAGE_PRESENT_CPL0;
 
   // Link the PDPE to the PDE
   pdpe_video[0].all = TO_PHYS_U64(&pde_video) | PAGE_PRESENT_CPL0;
-  
-  // Link the PDE to the PTE
-  pde_video[0].all = TO_PHYS_U64(&pte_video) | PAGE_PRESENT_CPL0;
 
-  // Map the framebuffer into the PTE. This assumes the framebuffer doesn't exceed 256 pages.
-  // Each page is 4KB, so 256 pages can map up to 1MB of video memory.
+  // Two PDE entries: each covers 512 × 4KB = 2MB (framebuffer is 3MB at 1024×768×32bpp)
+  pde_video[0].all = TO_PHYS_U64(&pte_video[0])   | PAGE_PRESENT_CPL0;
+  pde_video[1].all = TO_PHYS_U64(&pte_video[512]) | PAGE_PRESENT_CPL0;
+
   for (uint64_t i = 0; i < num_pages; i++) {
-      pte_video[i].all = (video_framebuffer + (i * PAGE_SIZE)) | PAGE_PRESENT_CPL0; // Present + Write
+      pte_video[i].all = (video_framebuffer + (i * PAGE_SIZE)) | PAGE_PRESENT_CPL0;
   }
+
+  vesa_video_info.mapped = true;
 }
 
 void init_paging(){

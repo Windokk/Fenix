@@ -6,154 +6,197 @@
 #include "drivers/ps2.h"
 
 #include "graphics/gfx.h"
+#include "drivers/vesa.h"
 
 #include "stdio.h"
 
+int32_t mouse_x = 0;
+int32_t mouse_y = 0;
+
+static uint8_t mouse_buttons = 0;
+
+// ---------------------------------------------------------------------------
+// Arrow cursor (16 wide x 16 tall): 0=transparent, 1=white, 2=black outline
+// ---------------------------------------------------------------------------
+#define CURSOR_W 16
+#define CURSOR_H 16
+
+static const uint8_t cursor_bitmap[CURSOR_H][CURSOR_W] = {
+    {1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {1,1,2,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {1,1,1,2,0,0,0,0,0,0,0,0,0,0,0,0},
+    {1,1,1,1,2,0,0,0,0,0,0,0,0,0,0,0},
+    {1,1,1,1,1,2,0,0,0,0,0,0,0,0,0,0},
+    {1,1,1,1,1,1,2,0,0,0,0,0,0,0,0,0},
+    {1,1,1,1,1,1,1,2,0,0,0,0,0,0,0,0},
+    {1,1,1,1,1,1,1,1,2,0,0,0,0,0,0,0},
+    {1,1,1,1,1,1,1,1,1,2,0,0,0,0,0,0},
+    {1,1,1,1,1,2,2,2,2,2,0,0,0,0,0,0},
+    {1,1,2,1,1,2,0,0,0,0,0,0,0,0,0,0},
+    {1,2,2,2,1,1,2,0,0,0,0,0,0,0,0,0},
+    {2,2,0,2,1,1,2,2,0,0,0,0,0,0,0,0},
+    {0,0,0,0,2,1,1,2,0,0,0,0,0,0,0,0},
+    {0,0,0,0,2,1,1,2,0,0,0,0,0,0,0,0},
+    {0,0,0,0,2,2,2,2,0,0,0,0,0,0,0,0}
+};
+
+static uint32_t cursor_bg[CURSOR_H * CURSOR_W];
+static int32_t  cursor_saved_x = -1;
+static int32_t  cursor_saved_y = -1;
+
+static void cursor_save_bg(int32_t x, int32_t y) {
+    uint32_t *fb = (uint32_t *)vesa_video_info.virt_addr;
+    for (int row = 0; row < CURSOR_H; row++) {
+        for (int col = 0; col < CURSOR_W; col++) {
+            int px = x + col, py = y + row;
+            if (px >= 0 && px < vesa_video_info.width &&
+                py >= 0 && py < vesa_video_info.height)
+                cursor_bg[row * CURSOR_W + col] = fb[py * vesa_video_info.width + px];
+            else
+                cursor_bg[row * CURSOR_W + col] = 0;
+        }
+    }
+    cursor_saved_x = x;
+    cursor_saved_y = y;
+}
+
+static void cursor_restore_bg(void) {
+    if (cursor_saved_x < 0) return;
+    uint32_t *fb = (uint32_t *)vesa_video_info.virt_addr;
+    for (int row = 0; row < CURSOR_H; row++) {
+        for (int col = 0; col < CURSOR_W; col++) {
+            int px = cursor_saved_x + col, py = cursor_saved_y + row;
+            if (px >= 0 && px < vesa_video_info.width &&
+                py >= 0 && py < vesa_video_info.height)
+                fb[py * vesa_video_info.width + px] = cursor_bg[row * CURSOR_W + col];
+        }
+    }
+}
+
+static void cursor_draw(int32_t x, int32_t y) {
+    uint32_t *fb = (uint32_t *)vesa_video_info.virt_addr;
+    for (int row = 0; row < CURSOR_H; row++) {
+        for (int col = 0; col < CURSOR_W; col++) {
+            uint8_t pixel = cursor_bitmap[row][col];
+            if (pixel == 0) continue;
+            int px = x + col, py = y + row;
+            if (px < 0 || px >= vesa_video_info.width ||
+                py < 0 || py >= vesa_video_info.height) continue;
+            fb[py * vesa_video_info.width + px] = (pixel == 1) ? 0xFFFFFF : 0x000000;
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+
 void mouse_write(uint8_t command) {
-    // Wait for the PS/2 controller to be ready to accept input
     if (!ps2_wait_input_ready()) {
-        printf("PS/2 Controller not ready for input\n");
+        printf("PS/2 controller not ready for input\n");
         return;
     }
-
-    // Send the "Write to Mouse" command (0xD4) to the PS/2 controller
     outb(PORT_PS2_CMD, 0xD4);
-
-    // Wait again for the PS/2 controller to be ready to accept input
     if (!ps2_wait_input_ready()) {
-        printf("PS/2 Controller not ready to send command to mouse\n");
+        printf("PS/2 controller not ready to forward to mouse\n");
         return;
     }
-
-    // Send the actual command/data to the mouse
     outb(PORT_PS2_RW_DATA, command);
 }
 
 uint8_t mouse_read(void) {
-    // Wait for the PS/2 controller to have data ready to read
     if (!ps2_wait_output_ready()) {
-        printf("PS/2 Controller not ready for output\n");
-        return 0xFF; // Return an invalid value to indicate failure
+        printf("PS/2 controller output not ready\n");
+        return 0xFF;
     }
-
-    // Read and return the byte from the PS/2 data port
     return inb(PORT_PS2_RW_DATA);
 }
 
-void mouse_enable(void)
-{
-    // Disable interrupts to avoid race conditions
+void mouse_enable(void) {
     disable_interrupts();
 
-    uint8_t ack;
-
-    // Clear the PS/2 controller's output buffer
     ps2_flush_output_buffer();
+    ps2_write_command(PS2_CMD_ENABLE_PORT2);
 
-    // Enable the second PS/2 port
-    ps2_write_command(PS2_CMD_ENABLE_PORT2);  // 0xA8 for enabling the second PS/2 port
-
-    // Reset the mouse
-    ps2_write_command(0xD4);  // 0xD4: Command signaling the next byte is for the mouse
-    ps2_write_data(MOUSE_CMD_RESET);  // 0xFF: Reset command for the mouse
-    ack = ps2_read_data();
-
-    if (ack != 0xFA) {
-        printf("Mouse reset failed, ack: 0x%X\n", ack);
-        enable_interrupts();  // Re-enable interrupts before returning
-        return;
-    }
-
-    // Enable data reporting from the mouse
+    // Reset mouse
     ps2_write_command(0xD4);
-    ps2_write_data(MOUSE_CMD_ENABLE_REPORTING);  // 0xF4: Enable data reporting
-    ack = ps2_read_data();
-
+    ps2_write_data(MOUSE_CMD_RESET);
+    uint8_t ack = ps2_read_data();
     if (ack != 0xFA) {
-        printf("Failed to enable mouse data reporting, ack: 0x%X\n", ack);
-        enable_interrupts();  // Re-enable interrupts before returning
+        printf("Mouse reset failed (ack=0x%X)\n", ack);
+        enable_interrupts();
+        return;
+    }
+    // Consume BAT complete (0xAA) and device ID (0x00)
+    ps2_flush();
+
+    // Enable data reporting
+    ps2_write_command(0xD4);
+    ps2_write_data(MOUSE_CMD_ENABLE_REPORTING);
+    ack = ps2_read_data();
+    if (ack != 0xFA) {
+        printf("Mouse enable reporting failed (ack=0x%X)\n", ack);
+        enable_interrupts();
         return;
     }
 
-    // Print success message
-    printf("PS/2 mouse enabled successfully\n");
+    printf("PS/2 mouse enabled\n");
 
-    // Unmask the mouse interrupt (IRQ12)
     pic_unmask_irq(PIC_PS2_MOUSE_INTERRUPT);
-
-    // Re-enable interrupts
     enable_interrupts();
-
-    printf("Mouse IRQ enabled\n");
 }
 
 static uint8_t mouse_packet[3];
 static uint8_t mouse_index = 0;
 
 void mouse_handle_irq(void) {
-
-    gfx_draw_filled_rectangle(mouse_x, mouse_y, 10, 10, 0, 0, 0);
-
-    // Check if the incoming byte is from the mouse
     uint8_t status = inb(0x64);
     if (!(status & 0x20)) {
-        // Not mouse data, ignore it
         pic_send_eoi(PIC_PS2_MOUSE_INTERRUPT);
         return;
     }
 
-    // Read the data byte from port 0x60
     uint8_t data = inb(0x60);
 
-    // Store the byte in the packet buffer
-    mouse_packet[mouse_index++] = data;
-
-    // Process the packet if it is complete
-    if (mouse_index == 3) {
-        // Verify alignment
-        if (!(mouse_packet[0] & 0x08)) {
-            // Misaligned packet, discard
-            mouse_index = 0;
-            pic_send_eoi(PIC_PS2_MOUSE_INTERRUPT);
-            return;
-        }
-
-        // Extract movement and button states
-        int32_t delta_x = (mouse_packet[0] & 0x10) ? (mouse_packet[1] | 0xFFFFFF00) : mouse_packet[1];
-        int32_t delta_y = (mouse_packet[0] & 0x20) ? (mouse_packet[2] | 0xFFFFFF00) : mouse_packet[2];
-        uint8_t left_button = mouse_packet[0] & 0x01;
-        uint8_t right_button = mouse_packet[0] & 0x02;
-        uint8_t middle_button = mouse_packet[0] & 0x04;
-
-        // Handle movement
-        printf("Mouse moved: X=%d, Y=%d\n", delta_x, delta_y);
-
-        mouse_x += delta_x;
-        mouse_y -= delta_y;
-
-        // Handle button states
-        if (left_button) {
-            //TODO : Implement left click
-            printf("Left button pressed\n");
-        }
-        if (right_button) {
-            //TODO : Implement right click
-            printf("Right button pressed\n");
-        }
-        if (middle_button) {
-            //TODO : Implement middle click
-            printf("Middle button pressed\n");
-        }
-
-        // Reset packet index for the next packet
-        mouse_index = 0;
+    // Validate alignment on first byte: bit 3 must always be set
+    if (mouse_index == 0 && !(data & 0x08)) {
+        pic_send_eoi(PIC_PS2_MOUSE_INTERRUPT);
+        return;
     }
 
-    printf("Mouse position: X=%d, Y=%d\n", mouse_x, mouse_y);
+    mouse_packet[mouse_index++] = data;
 
-    
-    gfx_draw_filled_rectangle(mouse_x, mouse_y, 10, 10, 255, 255, 255);
+    if (mouse_index == 3) {
+        mouse_index = 0;
 
-    // Send End of Interrupt (EOI) signal to the PIC
+        int32_t delta_x = (mouse_packet[0] & 0x10)
+                          ? (int32_t)(mouse_packet[1] | 0xFFFFFF00)
+                          : (int32_t)mouse_packet[1];
+        int32_t delta_y = (mouse_packet[0] & 0x20)
+                          ? (int32_t)(mouse_packet[2] | 0xFFFFFF00)
+                          : (int32_t)mouse_packet[2];
+
+        mouse_buttons = mouse_packet[0] & 0x07;
+
+        int32_t new_x = mouse_x + delta_x;
+        int32_t new_y = mouse_y - delta_y;
+
+        if (new_x < 0) new_x = 0;
+        if (new_y < 0) new_y = 0;
+        if (new_x >= (int32_t)vesa_video_info.width)  new_x = vesa_video_info.width  - 1;
+        if (new_y >= (int32_t)vesa_video_info.height) new_y = vesa_video_info.height - 1;
+
+        cursor_restore_bg();
+
+        mouse_x = new_x;
+        mouse_y = new_y;
+
+        cursor_save_bg(mouse_x, mouse_y);
+        cursor_draw(mouse_x, mouse_y);
+    }
+
     pic_send_eoi(PIC_PS2_MOUSE_INTERRUPT);
 }
+
+uint8_t mouse_button_state(void)  { return mouse_buttons; }
+int     mouse_left_pressed(void)  { return (mouse_buttons & 0x01) != 0; }
+int     mouse_right_pressed(void) { return (mouse_buttons & 0x02) != 0; }
+int     mouse_middle_pressed(void){ return (mouse_buttons & 0x04) != 0; }

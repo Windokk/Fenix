@@ -1,7 +1,9 @@
 #ifndef __COMMON_H
 #define __COMMON_H
 
+#if __STDC_VERSION__ < 202311L
 typedef _Bool bool;
+#endif
 
 // Define fixed-width unsigned types
 typedef unsigned char      uint8_t;   // 8-bit unsigned

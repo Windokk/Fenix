@@ -3,101 +3,157 @@
 #include "kernel.h"
 #include "memory/paging_frames.h"
 
+#include "stdio.h"
+
 mblock_t *root_mblock;
 
-mblock_t *find_heap_block(uint32_t size) {
-  // DEBUG("MMU[heap]: Heap find_heap_block %i\n", size);
-  HEAP_WALKER(mb) {
-    if (mb->free && mb->size > size) { // not >= ... little hack to not match last block in a byte 
-      return mb;
+static uint32_t align_to(uint32_t addr, uint32_t align) {
+    return (addr + align - 1) & ~(align - 1);
+}
+
+static mblock_t *find_heap_block(uint32_t size) {
+    HEAP_WALKER(mb) {
+        // exact fit now allowed
+        if (mb->free && mb->size >= size) {
+            return mb;
+        }
     }
-  }
-  return NULL;
+
+    return NULL;
 }
 
-void debug_heap_dump() {
-  // DEBUG("MMU[heap]: ------- HEAP DUMP --------\n");
-  HEAP_WALKER(mb) {
-    // DEBUG("MMU[heap]: mb: 0x%X mag:%X siz:%i free:%i\n", mb, mb->magic, mb->size, mb->free);
-  }
-  // DEBUG("MMU[heap]: --------------------------\n");
-}
+static mblock_t *split_heap_block(mblock_t *mb, uint32_t size) {
+    // If remaining space is too small,
+    // don't split the block.
+    if (mb->size <= size + sizeof(mblock_t)) {
+        mb->free = false;
+        return mb;
+    }
 
-mblock_t *split_heap_block(mblock_t *mb, uint32_t size) {
-  mb->free = false;
-	// No splitting since new block can't fit
-	if (mb->size < size + sizeof(mblock_t)) {
-		return mb;
-	}
-  uint32_t old_size = mb->size;
-  mblock_t *old_next = mb->next;
-  uint8_t *ptr = (uint8_t*)mb;
+    uint32_t old_size = mb->size;
+    mblock_t *old_next = mb->next;
 
-  mb->size = size;
+    uint8_t *ptr = (uint8_t*)mb;
 
-  mblock_t *next_mb = (mblock_t*)(ptr + sizeof(mblock_t) + mb->size);
-  mb->next = next_mb;
-  next_mb->magic = MBLOCK_MAGIC;
-  next_mb->size = old_size - size - sizeof(mblock_t);
-  next_mb->next = old_next;
-  next_mb->free = true;
+    // current allocated block
+    mb->size = size;
+    mb->free = false;
 
-  // DEBUG("MMU[heap]: split prev: 0x%X mag:%X siz:%i free:%i\n", mb, mb->magic, mb->size, mb->free);
-  // DEBUG("MMU[heap]: split next: 0x%X mag:%X siz:%i free:%i\n", next_mb, next_mb->magic, next_mb->size, next_mb->free);
+    // new free block
+    mblock_t *next_mb =
+        (mblock_t*)(ptr + sizeof(mblock_t) + size);
 
-  return mb;
-}
+    next_mb->magic = MBLOCK_MAGIC;
+    next_mb->size = old_size - size - sizeof(mblock_t);
+    next_mb->free = true;
+    next_mb->next = old_next;
 
-uint32_t align_to(uint32_t addr, uint32_t align) {
-  uint32_t align_mask = align - 1;
-  if (addr & align_mask) {
-    return (addr | align_mask) + 1;
-  }
-  else {
-    return addr;
-  }
+    mb->next = next_mb;
+
+    return mb;
 }
 
 void *malloc(uint32_t size) {
-  // Align size to 64bit
-  // size & 0b111
-  uint32_t old_size = size;
-  size = align_to(size, 8);
+    if (size == 0) {
+        return NULL;
+    }
 
-  mblock_t *mb = find_heap_block(size);
-  if (mb == NULL) {
-    // DEBUG("MMU[heap]: No more empty blocks ... sbrk-ing ...\n");
-    //TODO : sbrk(size);
-    return malloc(size);
-  } 
-  else {
-    // DEBUG("MMU[heap]: split block  ...\n");
+    // align to 8-byte boundary
+    size = align_to(size, 8);
+
+    mblock_t *mb = find_heap_block(size);
+
+    if (mb == NULL) {
+        // TODO:
+        // expand heap here with paging/sbrk
+        // instead of infinite recursion
+
+        printf("HEAP: Out of memory allocating %u bytes\n", size);
+        return NULL;
+    }
+
     mb = split_heap_block(mb, size);
-  }
-  return ((uint8_t*)mb) + sizeof(mblock_t);
+
+    return ((uint8_t*)mb) + sizeof(mblock_t);
 }
 
 void *calloc(size_t num, size_t size) {
-  void *ptr = malloc(num * size);
-  memset(ptr, 0, num * size);
-  return ptr;
+    if (num == 0 || size == 0) {
+        return NULL;
+    }
+
+    uint32_t total = num * size;
+
+    void *ptr = malloc(total);
+
+    if (ptr == NULL) {
+        return NULL;
+    }
+
+    memset(ptr, 0, total);
+
+    return ptr;
 }
 
+static void coalesce_free_blocks() {
+    mblock_t *mb = root_mblock;
+
+    while (mb && mb->next) {
+        if (mb->free && mb->next->free) {
+            // merge adjacent free blocks
+            mb->size += sizeof(mblock_t) + mb->next->size;
+            mb->next = mb->next->next;
+
+            // stay on same block
+            continue;
+        }
+
+        mb = mb->next;
+    }
+}
 
 void free(void *ptr) {
-  mblock_t *mb = (mblock_t *)(((uint8_t*)ptr) - sizeof(mblock_t));
-  if (mb->magic != MBLOCK_MAGIC) {
-    HALT_AND_CATCH_FIRE("HEAP: free(0x%X) - freeing bad block.\n");
-  }
-  mb->free = true;
+    if (ptr == NULL) {
+        return;
+    }
+
+    mblock_t *mb =
+        (mblock_t*)(((uint8_t*)ptr) - sizeof(mblock_t));
+
+    if (mb->magic != MBLOCK_MAGIC) {
+        HALT_AND_CATCH_FIRE(
+            "HEAP: free(%p) - invalid block\n",
+            ptr
+        );
+    }
+
+    if (mb->free) {
+        HALT_AND_CATCH_FIRE(
+            "HEAP: double free detected (%p)\n",
+            ptr
+        );
+    }
+
+    mb->free = true;
+
+    // reduce fragmentation
+    coalesce_free_blocks();
 }
 
 void init_heap() {
-  root_mblock = (mblock_t*)heap_start;
-  root_mblock->free = true;
-  root_mblock->magic = MBLOCK_MAGIC;
-  root_mblock->size = heap_end - heap_start - sizeof(mblock_t);
-  root_mblock->next = NULL;
-  // DEBUG("MMU[heap]: Heap init : start:0x%X end:0x%X\n", heap_start, heap_end);
-  // DEBUG("MMU[heap]: Heap first block size : %i\n", root_mblock->size);
+    root_mblock = (mblock_t*)heap_start;
+
+    root_mblock->magic = MBLOCK_MAGIC;
+    root_mblock->free = true;
+    root_mblock->next = NULL;
+
+    root_mblock->size =
+        heap_end - heap_start - sizeof(mblock_t);
+
+    printf(
+        "HEAP: init start=0x%X end=0x%X size=%u\n",
+        heap_start,
+        heap_end,
+        root_mblock->size
+    );
 }

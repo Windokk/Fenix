@@ -2,6 +2,24 @@
 
 #include <stdarg.h>
 #include "common.h"
+#include "graphics/gfx.h"
+
+static int32_t fb_cx = 0;
+static int32_t fb_cy = 0;
+
+static void fb_putchar(char c) {
+    if (!vesa_video_info.mapped) return;
+    if (c == '\n') {
+        fb_cx = 0;
+        fb_cy += GFX_LINE_HEIGHT;
+        return;
+    }
+    fb_cx += gfx_draw_char(fb_cx, fb_cy, c, 255, 255, 255);
+}
+
+static void fb_puts(const char *s) {
+    while (*s) fb_putchar(*s++);
+}
 
 void printf(const char* format, ...) {
 	va_list args;
@@ -76,42 +94,53 @@ void vprintf(const char* format, va_list args) {
             format++;
             if (*format == '%') {
                 write_serial('%');
+                fb_putchar('%');
                 format++;
             } else if (*format == 'c') {
-                write_serial((char)va_arg(args, int));
+                char cv = (char)va_arg(args, int);
+                write_serial(cv);
+                fb_putchar(cv);
                 format++;
             } else if (*format == 's') {
-                serial_print((char*)va_arg(args, char*));
+                char *sv = (char*)va_arg(args, char*);
+                serial_print(sv);
+                fb_puts(sv);
                 format++;
             } else if (*format == 'd' || *format == 'i') {
                 int value = va_arg(args, int);
                 if (value < 0) {
                     write_serial('-');
+                    fb_putchar('-');
                     value = -value;
                 }
                 itoa(value, buffer, 10);
                 serial_print(buffer);
+                fb_puts(buffer);
                 format++;
             } else if (*format == 'u') {
                 unsigned int value = va_arg(args, unsigned int);
                 itoa(value, buffer, 10);
                 serial_print(buffer);
+                fb_puts(buffer);
                 format++;
             } else if (*format == 'x') {
                 unsigned int value = va_arg(args, unsigned int);
                 to_hex(value, buffer, false);
                 serial_print(buffer);
+                fb_puts(buffer);
                 format++;
             } else if (*format == 'X') {
                 unsigned int value = va_arg(args, unsigned int);
                 to_hex(value, buffer, true);
                 serial_print(buffer);
+                fb_puts(buffer);
                 format++;
-            } else if (*format == 'f') {  // Handle float values
-                float value = va_arg(args, double); // va_arg promotes float to double
-                int precision = 6;  // Default precision, you can adjust it
-                ftoa(value, buffer, precision); // Convert float to string
+            } else if (*format == 'f') {
+                float value = va_arg(args, double);
+                int precision = 6;
+                ftoa(value, buffer, precision);
                 serial_print(buffer);
+                fb_puts(buffer);
                 format++;
             } else if (*format >= '0' && *format <= '9') {
                 if (*format == '0') {
@@ -123,10 +152,15 @@ void vprintf(const char* format, va_list args) {
                 }
             } else {
                 write_serial('%');
-                write_serial(*format++);
+                write_serial(*format);
+                fb_putchar('%');
+                fb_putchar(*format);
+                format++;
             }
         } else {
-            write_serial(*format++);
+            write_serial(*format);
+            fb_putchar(*format);
+            format++;
         }
     }
 }

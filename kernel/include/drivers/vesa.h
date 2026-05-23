@@ -16,6 +16,7 @@ typedef struct video_info_struct {
   int bits;
   int pitch;
   uint8_t  type;
+  bool mapped;
 } video_info_t;
 
 extern struct video_info_struct vesa_video_info;

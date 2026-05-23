@@ -9,6 +9,7 @@
 #include "drivers/keyboard.h"
 #include "drivers/mouse.h"
 #include "drivers/ps2.h"
+#include "drivers/rtc.h"
 #include "drivers/serial.h"
 #include "drivers/vesa.h"
 
@@ -93,32 +94,30 @@ void kernel_premain(unsigned long magic, multiboot_info_t* mbi_phys) {
 
     init_kernel_vesa(TO_VMA_PTR(multiboot_info_t *, mbi_phys));
 
-    printf("---------- Memory Initialization ----------\n\n");
+    printf("---------- Memory Initialization ----------\n");
 
     memory_infos_t mem = parse_multiboot2_memory(mbi_phys);
 
-    //Physical Memory
     init_frames(mem.usable_size);
-
-    //Virtual Memory
     init_paging();
+    printf("Paging done\n");
 
 
-    printf("\n\n");
+    printf("\n");
 
-    printf("------------ PIC Initialization ------------\n\n");
+    printf("------------ PIC Initialization ------------\n");
 
 
     pic_init(false);
 
-    printf("\n\n");
+    printf("\n");
 
-    printf("------------ IDT Initialization ------------\n\n");
+    printf("------------ IDT Initialization ------------\n");
 
     // Setup Interrupt Descriptor table
     idt_init();
 
-    printf("\n\n");
+    printf("\n");
 
     disable_interrupts();
 
@@ -127,7 +126,7 @@ void kernel_premain(unsigned long magic, multiboot_info_t* mbi_phys) {
 
     enable_interrupts();
 
-    printf("\n\n");
+    printf("\n");
 
     printf("------------ PS2 Initialization ------------\n\n");
 
@@ -148,15 +147,29 @@ void kernel_premain(unsigned long magic, multiboot_info_t* mbi_phys) {
 
     printf("\n\n");
 
-    
+    printf("----------- RTC Initialization -------------\n\n");
+
+    rtc_init();
+
+    printf("\n\n");
 
     enable_interrupts();
-
-    
-
 }
 
 void kernel_main()
 {
+    rtc_time_t time = {
+      0,
+      0,
+      0,
+      0,
+      0,
+      0  
+    };
+
+    rtc_read_time(&time);
+    
+    printf("Current time : %u/%u/%u %u:%u:%u", time.month, time.day, time.year, time.hours, time.minutes, time.seconds);
+
     idle();
 }
