@@ -34,7 +34,7 @@
 - [x] Text rendering (`gfx_draw_text` using bitmap font)
 - [x] `printf` output redirected to framebuffer (alongside serial)
 - [x] RTC driver (read real-time clock)
-- [ ] PIT driver (timer interrupts, basic tick counter)
+- [x] PIT driver (timer interrupts, basic tick counter)
 - [ ] Basic on-screen debug console (scrollable text output)
 
 ### Phase 3 — Interactive Shell
