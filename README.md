@@ -4,7 +4,9 @@
 
 # Welcome to Fenix !
 <br>
+<img src="github/shield.svg" alt="shield"/>
 <br>
+
 ### A Unix-like Minimalistic Operating System (x84_64)
 <br>
 </div>
