@@ -1,8 +1,5 @@
 #pragma once
 
-#ifndef __PAGING_PAGES_H
-#define __PAGING_PAGES_H
-
 #include "memory/paging_frames.h"
 #include "memory/heap.h"
 
@@ -11,8 +8,6 @@
 #include "stdio.h"
 
 #define PAGE_SIZE 0x1000       // 4KB
-
-
 
 #define KERNEL_START_MEMORY 0xFFFF800000000000
 #define KERNEL_VMA ((char*)KERNEL_START_MEMORY)
@@ -28,8 +23,6 @@
 #define GDT_USER_CODE   0x18
 #define GDT_USER_DATA   0x20
 #define GDT_TSS         0x28
-
-
 
 // PML4 (Page Map Level 4) entry structure
 typedef union pml4e_struct {
@@ -112,10 +105,10 @@ typedef union pte_struct {
     } fields;
 } __attribute__((packed)) pte_t;
 
-static pml4e_t pml4e[512] __attribute__((aligned(4096)));
-static pdpe_t  pdpe[512] __attribute__((aligned(4096)));
-static pde_t   pde[512] __attribute__((aligned(4096)));
-static pte_t   pte[512] __attribute__((aligned(4096)));
+static pml4e_t pml4e[512]  __attribute__((aligned(4096)));
+static pdpe_t  pdpe[512]   __attribute__((aligned(4096)));
+static pde_t   pde[512]    __attribute__((aligned(4096)));
+static pte_t   pte[2048]   __attribute__((aligned(4096))); /* 4 PDEs × 512 = 8 MB */
 
 static pdpe_t  pdpe_user[512] __attribute__((aligned(4096)));
 static pde_t   pde_user[512] __attribute__((aligned(4096)));
@@ -129,8 +122,22 @@ static pdpe_t  pdpe_video[512] __attribute__((aligned(4096)));
 static pde_t   pde_video[512] __attribute__((aligned(4096)));
 static pte_t   pte_video[1024] __attribute__((aligned(4096)));
 
+// P4[0x1D0] → 0xFFFFE80000000000  (16 MB window for ACPI system tables)
+// GRUB places ACPI tables near the top of RAM, usually far above the 8 MB
+// kernel mapping. We map a 16 MB aligned region covering the RSDT/XSDT so
+// that acpi.c can access every SDT through a simple pointer.
+#define ACPI_TABLE_BASE    0xFFFFE80000000000ULL
+#define ACPI_TABLE_WINDOW  (16ULL << 20)   // 16 MB = 4096 pages = 8 PDEs
 
+static pdpe_t  pdpe_acpi_tables[512]  __attribute__((aligned(4096)));
+static pde_t   pde_acpi_tables[512]   __attribute__((aligned(4096)));
+static pte_t   pte_acpi_tables[4096]  __attribute__((aligned(4096)));
 
+// P4[0x1E0] → 0xFFFFF00000000000
+// page 0: LAPIC  page 1+: IOAPICs (1 page each, up to 4)
+static pdpe_t  pdpe_apic[512] __attribute__((aligned(4096)));
+static pde_t   pde_apic[512]  __attribute__((aligned(4096)));
+static pte_t   pte_apic[512]  __attribute__((aligned(4096)));
 
 static void init_paging_kernel();
 
@@ -140,4 +147,12 @@ static void init_paging_video();
 
 void init_paging();
 
-#endif
+// Map a 16 MB physical region (phys_base must be 16 MB-aligned) into the
+// ACPI_TABLE_BASE virtual window so acpi.c can read ACPI system tables that
+// live above the 8 MB kernel mapping.
+void init_paging_acpi_tables(uint64_t phys_base);
+
+// Map LAPIC and I/O APIC physical MMIO pages (cache-disabled) into the
+// APIC_MMIO_BASE virtual region. Call after init_paging().
+void init_paging_apic(uint64_t lapic_phys,
+                      uint64_t *ioapic_phys, uint32_t ioapic_count);

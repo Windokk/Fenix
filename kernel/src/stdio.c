@@ -1,17 +1,97 @@
 #include "stdio.h"
 
-#include <stdarg.h>
 #include "common.h"
 #include "graphics/gfx.h"
+#include "string.h"
+
+#define CURSOR_W 8
 
 static int32_t fb_cx = 0;
 static int32_t fb_cy = 0;
+
+static int32_t cursor_px, cursor_py;  // last-rendered position
+static bool    cursor_on     = false;
+static bool    cursor_active = false; // only true while readline is waiting for input
+
+void cursor_render(bool on){
+    if (!vesa_video_info.mapped) return;
+    if(on)
+        gfx_draw_filled_rectangle(cursor_px, cursor_py + GFX_LINE_HEIGHT - 10, CURSOR_W, 2, 255, 255, 255);
+    else
+        gfx_draw_filled_rectangle(cursor_px, cursor_py + GFX_LINE_HEIGHT - 10, CURSOR_W, 2, 0, 0, 0);
+}
+
+void cursor_show(void) {
+    cursor_active = true;
+    cursor_render(false);
+    cursor_px = fb_cx;
+    cursor_py = fb_cy;
+    cursor_render(true);
+    cursor_on = true;
+}
+
+void cursor_hide(void) {
+    cursor_active = false;
+    cursor_render(false);
+    cursor_on = false;
+}
+
+void cursor_sync(void) {
+    if (!cursor_active) return;
+
+    cursor_render(false);
+    cursor_px = fb_cx;
+    cursor_py = fb_cy;
+    cursor_render(true);
+    cursor_on = true;
+}
+
+void cursor_blink_tick(void) {
+    if (!cursor_active) return;
+
+    cursor_on = !cursor_on;
+    cursor_render(cursor_on);
+}
+
+static void fb_scroll() {
+    if (!vesa_video_info.mapped) return;
+    uint32_t *fb = (uint32_t *)vesa_video_info.virt_addr;
+    uint32_t  w  = vesa_video_info.width;
+    uint32_t  h  = vesa_video_info.height;
+    memmove(fb, fb + w * GFX_LINE_HEIGHT, w * (h - GFX_LINE_HEIGHT) * sizeof(uint32_t));
+    memset(fb + w * (h - GFX_LINE_HEIGHT), 0, w * GFX_LINE_HEIGHT * sizeof(uint32_t));
+    fb_cy = h - GFX_LINE_HEIGHT;
+    cursor_sync();
+}
+
+int32_t console_cursor_x(void) {
+    return fb_cx;
+}
+
+void console_clear(void) {
+    if (!vesa_video_info.mapped) return;
+    uint32_t *fb = (uint32_t *)vesa_video_info.virt_addr;
+    memset(fb, 0, vesa_video_info.width * vesa_video_info.height * sizeof(uint32_t));
+    fb_cx = 0;
+    fb_cy = 0;
+    cursor_sync();
+}
+
+void console_erase_chars(int32_t pixel_width) {
+    if (!vesa_video_info.mapped || pixel_width <= 0) return;
+    fb_cx -= pixel_width;
+    if (fb_cx < 0) fb_cx = 0;
+    gfx_draw_filled_rectangle(fb_cx, fb_cy, pixel_width, GFX_LINE_HEIGHT, 0, 0, 0);
+    cursor_sync();
+}
 
 static void fb_putchar(char c) {
     if (!vesa_video_info.mapped) return;
     if (c == '\n') {
         fb_cx = 0;
         fb_cy += GFX_LINE_HEIGHT;
+        if (fb_cy + GFX_LINE_HEIGHT > (int32_t)vesa_video_info.height)
+            fb_scroll();
         return;
     }
     fb_cx += gfx_draw_char(fb_cx, fb_cy, c, 255, 255, 255);
@@ -163,4 +243,5 @@ void vprintf(const char* format, va_list args) {
             format++;
         }
     }
+    cursor_sync();
 }

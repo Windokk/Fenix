@@ -63,8 +63,9 @@ static bool caps_lock_on = false;
 #define KB_BUF_SIZE 64
 
 static key_event_t kb_buffer[KB_BUF_SIZE];
-static uint8_t kb_head = 0;
-static uint8_t kb_tail = 0;
+static uint8_t     kb_head    = 0;
+static uint8_t     kb_tail    = 0;
+task_t            *kb_waiter  = NULL;
 
 static void kb_buf_push(key_event_t ev) {
     uint8_t next = (kb_head + 1) % KB_BUF_SIZE;
@@ -85,7 +86,7 @@ void keyboard_enable(void) {
     disable_interrupts();
     pic_unmask_irq(PIC_KEYBOARD_INTERRUPT);
     enable_interrupts();
-    printf("Keyboard IRQ enabled\n");
+    printf("PS/2 Keyboard enabled\n");
 }
 
 void keyboard_handle_irq(void) {
@@ -122,8 +123,13 @@ void keyboard_handle_irq(void) {
         .caps_lock = caps_lock_on,
     };
 
-    if (!released)
+    if (!released) {
         kb_buf_push(ev);
+        if (kb_waiter) {
+            task_unblock(kb_waiter);
+            kb_waiter = NULL;
+        }
+    }
 
     pic_send_eoi(PIC_KEYBOARD_INTERRUPT);
 }
@@ -138,7 +144,12 @@ bool keyboard_get_event(key_event_t *out) {
 
 char keyboard_getchar(void) {
     key_event_t ev;
-    while (!kb_buf_pop(&ev)) {}
+    while (!kb_buf_pop(&ev)) {
+        if (current_task) {
+            kb_waiter = current_task;
+            task_block();
+        }
+    }
     return ev.ascii;
 }
 

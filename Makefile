@@ -19,7 +19,7 @@ FENIX_BIN = $(BUILD_DIR)/fenix.bin
 ISO_FILE = fenix.iso
 
 KERNEL_SRC = $(shell find kernel/src -type f -name "*.c")
-KERNEL_SRC += $(shell find kernel/src/interrupts -type f -name "*.asm")
+KERNEL_SRC += $(shell find kernel/src -type f -name "*.asm" -not -path "*/boot/*")
 KERNEL_OBJ = $(patsubst kernel/src/%,build/kernel/%.o,$(KERNEL_SRC))
 KERNEL_INC = $(shell find kernel/include -type f \( -name "*.h" \) )
 KERNEL_BUILD_DIR = $(BUILD_DIR)/kernel

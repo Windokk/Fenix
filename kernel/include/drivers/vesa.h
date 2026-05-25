@@ -1,5 +1,4 @@
-#ifndef __VESA_H
-#define __VESA_H
+#pragma once
 
 #include "multiboot2.h"
 #include "common.h"
@@ -22,5 +21,3 @@ typedef struct video_info_struct {
 extern struct video_info_struct vesa_video_info;
 
 void init_kernel_vesa(multiboot_info_t *mbi);
-
-#endif

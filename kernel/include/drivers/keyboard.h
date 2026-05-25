@@ -1,7 +1,7 @@
-#ifndef __KEYBOARD_H
-#define __KEYBOARD_H
+#pragma once
 
 #include "common.h"
+#include "tasks/task.h"
 
 /* Modifier flag bits returned by keyboard_modifiers() */
 #define KB_MOD_SHIFT  (1 << 0)
@@ -19,6 +19,8 @@ typedef struct {
     bool    caps_lock;
 } key_event_t;
 
+extern task_t *kb_waiter;
+
 void    keyboard_enable(void);
 void    keyboard_handle_irq(void);
 
@@ -26,5 +28,3 @@ bool    keyboard_has_input(void);
 bool    keyboard_get_event(key_event_t *out); /* non-blocking pop */
 char    keyboard_getchar(void);               /* blocking — spins until a key is available */
 uint8_t keyboard_modifiers(void);             /* current modifier bitmask */
-
-#endif

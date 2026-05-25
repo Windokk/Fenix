@@ -1,8 +1,5 @@
 #pragma once
 
-#ifndef __SERIAL_H
-#define __SERIAL_H
-
 #include "common.h"
 
 #define COM1 0x3F8
@@ -54,5 +51,3 @@ void int_to_ascii(int value, char* str, int base);
 void hex_to_ascii64(uint64_t value, char* str);
 
 void debug_print(const char *msg);
-
-#endif

@@ -1,1 +1,2 @@
-qemu-system-x86_64 -cdrom build/fenix.iso -serial stdio -m 128 -monitor telnet:127.0.0.1:1234,server,nowait
+make
+qemu-system-x86_64 -cdrom build/fenix.iso -serial stdio -m 128

@@ -1,5 +1,6 @@
 #include "graphics/gfx.h"
-#include "noto_sans.h"
+#include "fonts/noto_sans.h"
+#include "fonts/dos_vga_437.h"
 
 void gfx_draw_pixel(int32_t x, int32_t y, uint32_t r, uint32_t g, uint32_t b)
 {
@@ -193,32 +194,6 @@ void gfx_draw_filled_circle(int32_t centerX, int32_t centerY, int32_t radius, ui
     }
 }
 
-struct Glyph
-{
-    uint8_t ascii;
-    uint8_t width;
-    uint16_t offset;
-};
-
-// -----------------------------------------------------------------------------
-// Generated Font Data
-// -----------------------------------------------------------------------------
-
-// -----------------------------------------------------------------------------
-// Font Metadata
-// -----------------------------------------------------------------------------
-
-#define FONT_FIRST     32
-#define FONT_LAST      126
-#define FONT_HEIGHT    16
-#define FONT_BPP       4
-
-// pixels packed per byte
-#define FONT_PIXELS_PER_BYTE (8 / FONT_BPP)
-
-// spacing between glyphs
-#define FONT_SPACING   1
-
 // Helpers
 static inline uint8_t gfx_unpack_pixel(
     uint8_t byte,
@@ -307,70 +282,93 @@ static inline uint32_t gfx_blend(
 }
 
 // Draw Character
-int32_t gfx_draw_char(
-    int32_t x,
-    int32_t y,
-    char c,
-    uint32_t r,
-    uint32_t g,
-    uint32_t b)
+int32_t gfx_draw_char(int32_t x, int32_t y, char c, uint32_t r, uint32_t g, uint32_t b)
 {
+    // Validate character range
     if ((uint8_t)c < FONT_FIRST ||
         (uint8_t)c > FONT_LAST)
     {
         return FONT_HEIGHT / 2;
     }
 
+    // Lookup glyph
     uint32_t glyph_index =
         (uint8_t)c - FONT_FIRST;
 
-    const Glyph *gl =
-        &NotoSansGlyphs[glyph_index];
+    #if FONT_USE_DOS_VGA
+        const Glyph *glyphs =
+            &dos_vga_437Glyphs[glyph_index];
+        const uint8_t *glyph =
+            &dos_vga_437[glyphs->offset];
+    #else
+        const Glyph *glyphs =
+            &NotoSansGlyphs[glyph_index];
+        const uint8_t *glyph =
+            &noto_sans[glyphs->offset];
+    #endif
 
-    const uint8_t *glyph =
-        &noto_sans[gl->offset];
+    const uint32_t glyph_width =
+        glyphs->width;
 
-    uint32_t glyph_width = gl->width;
-
-    uint32_t bytes_per_row =
-        (glyph_width + FONT_PIXELS_PER_BYTE - 1) /
+    // Packed bitmap geometry
+    const uint32_t pixels_per_byte =
         FONT_PIXELS_PER_BYTE;
 
+    const uint32_t bytes_per_row =
+        (glyph_width + pixels_per_byte - 1) /
+        pixels_per_byte;
+
+    // Framebuffer
     uint32_t *fb =
         (uint32_t *)vesa_video_info.virt_addr;
 
+    // Render glyph
     for (uint32_t row = 0;
          row < FONT_HEIGHT;
          row++)
     {
+        const uint32_t row_offset =
+            row * bytes_per_row;
+
         for (uint32_t col = 0;
              col < glyph_width;
              col++)
         {
+            // Packed byte lookup
             uint32_t byte_index =
-                row * bytes_per_row +
-                (col / FONT_PIXELS_PER_BYTE);
+                row_offset +
+                (col / pixels_per_byte);
 
             uint8_t packed =
                 glyph[byte_index];
 
+            // Pixel inside packed byte
             uint32_t pixel_index =
-                col % FONT_PIXELS_PER_BYTE;
+                col % pixels_per_byte;
 
             uint8_t pixel =
                 gfx_unpack_pixel(
                     packed,
                     pixel_index);
 
-            if (!pixel)
+            // transparent pixel
+            if (pixel == 0)
+            {
                 continue;
+            }
 
+            // Convert BPP value -> 0..255 alpha
             uint8_t alpha =
                 gfx_expand_alpha(pixel);
 
-            int32_t px = x + col;
-            int32_t py = y + row;
+            // Screen position
+            int32_t px =
+                x + (int32_t)col;
 
+            int32_t py =
+                y + (int32_t)row;
+
+            // Clipping
             if (px < 0 ||
                 py < 0 ||
                 px >= (int32_t)vesa_video_info.width ||
@@ -379,12 +377,14 @@ int32_t gfx_draw_char(
                 continue;
             }
 
+            // Destination framebuffer pixel
             uint32_t *dst =
                 &fb[
                     py * vesa_video_info.width +
                     px
                 ];
 
+            // Blend glyph pixel
             *dst = gfx_blend(
                 *dst,
                 r,
@@ -394,7 +394,11 @@ int32_t gfx_draw_char(
         }
     }
 
-    return glyph_width + FONT_SPACING;
+    // Advance cursor
+    return (int32_t)(
+        glyph_width +
+        FONT_SPACING
+    );
 }
 
 // Draw Text
@@ -463,9 +467,17 @@ int32_t gfx_text_width(
             uint32_t glyph_index =
                 (uint8_t)*str - FONT_FIRST;
 
-            line_width +=
-                NotoSansGlyphs[glyph_index].width +
-                FONT_SPACING;
+            #if FONT_USE_DOS_VGA
+                line_width +=
+                    dos_vga_437Glyphs[glyph_index].width +
+                    FONT_SPACING;
+            #else
+                line_width +=
+                    NotoSansGlyphs[glyph_index].width +
+                    FONT_SPACING;
+            #endif
+
+            
         }
 
         str++;

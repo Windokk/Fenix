@@ -1,5 +1,4 @@
-#ifndef __KERNEL_H
-#define __KERNEL_H
+#pragma once
 
 #include "common.h"
 
@@ -15,5 +14,3 @@ typedef struct memory_infos{
   uint64_t usable_start;
   uint64_t usable_size;
 } memory_infos_t;
-
-#endif // _KERNEL_H

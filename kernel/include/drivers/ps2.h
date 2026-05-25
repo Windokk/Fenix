@@ -1,5 +1,4 @@
-#ifndef __PS2_H
-#define __PS2_H
+#pragma once
 
 #include "common.h"
 #include "drivers/serial.h"
@@ -66,6 +65,3 @@ void ps2_write_command(uint8_t command);
 void ps2_write_data(uint8_t data);
 
 uint8_t ps2_read_data(void);
-
-
-#endif

@@ -3,6 +3,7 @@
 #include "stdio.h"
 
 #include "interrupts/pic.h"
+#include "interrupts/apic.h"
 
 #include "drivers/keyboard.h"
 #include "drivers/mouse.h"
@@ -125,28 +126,35 @@ void interrupt_handler(isr_ctx_t *regs) {
     uint8_t int_no = regs->int_no;
 
     if (int_no == 33) {
-        pic_mask_irq(PIC_KEYBOARD_INTERRUPT);
+        // With APIC: the LAPIC prevents re-delivery until EOI, no need to mask.
+        // With PIC: mask/unmask prevents re-entrance.
+        if (!g_use_apic) pic_mask_irq(PIC_KEYBOARD_INTERRUPT);
         keyboard_handle_irq();
-        pic_unmask_irq(PIC_KEYBOARD_INTERRUPT);
+        if (!g_use_apic) pic_unmask_irq(PIC_KEYBOARD_INTERRUPT);
     }
     else if (int_no == 40) {
         rtc_handle_irq();
     }
-    else if(int_no == 44){
-
-        pic_mask_irq(PIC_PS2_MOUSE_INTERRUPT);
+    else if (int_no == 44) {
+        if (!g_use_apic) pic_mask_irq(PIC_PS2_MOUSE_INTERRUPT);
         mouse_handle_irq();
-        pic_unmask_irq(PIC_PS2_MOUSE_INTERRUPT);
+        if (!g_use_apic) pic_unmask_irq(PIC_PS2_MOUSE_INTERRUPT);
+    }
+    else if (int_no >= 32) {
+        // Unknown hardware interrupt: just EOI and continue
+        if (g_use_apic) lapic_send_eoi();
+        return;
     }
     else {
-        
         disable_interrupts();
-
         printf("Error: %s, Error Code: 0x%x", exception_strs[int_no], regs->error_code);
-
         for (;;) {
             asm volatile ("hlt");
         }
     }
 
+    // With APIC, send EOI to the LAPIC after every hardware interrupt.
+    // Device handlers still call pic_send_eoi() which is harmless when the
+    // 8259 is masked (writes to the PIC command port are ignored).
+    if (g_use_apic) lapic_send_eoi();
 }

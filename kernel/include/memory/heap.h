@@ -1,8 +1,5 @@
 #pragma once
 
-#ifndef __HEAP_H
-#define __HEAP_H
-
 #include "common.h"
 
 #define PAGE_PRESENT_CPL0 0x03
@@ -24,9 +21,3 @@ void *calloc(size_t num, size_t size);
 void free(void* size);
 void debug_heap_dump();
 void init_heap();
-
-
-
-
-
-#endif

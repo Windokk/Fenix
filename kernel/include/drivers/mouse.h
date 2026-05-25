@@ -1,5 +1,4 @@
-#ifndef __MOUSE_H
-#define __MOUSE_H
+#pragma once
 
 #include "common.h"
 
@@ -20,5 +19,3 @@ uint8_t mouse_button_state(void);
 int     mouse_left_pressed(void);
 int     mouse_right_pressed(void);
 int     mouse_middle_pressed(void);
-
-#endif

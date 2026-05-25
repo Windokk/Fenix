@@ -1,11 +1,10 @@
-#ifndef __GFX_H
-#define __GFX_H
+#pragma once
 
 #include "common.h"
 
 #include "drivers/vesa.h"
 
-#define GFX_LINE_HEIGHT 32
+#define GFX_LINE_HEIGHT 24
 
 // Draw a single pixel
 void gfx_draw_pixel(int32_t x, int32_t y,  uint32_t r, uint32_t g, uint32_t b);
@@ -34,5 +33,3 @@ void gfx_draw_text(int32_t x, int32_t y, const char *str, uint32_t r, uint32_t g
 
 // Returns the pixel width of a string (useful for centering / layout).
 int32_t gfx_text_width(const char *str);
-
-#endif

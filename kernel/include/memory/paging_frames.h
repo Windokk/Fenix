@@ -1,8 +1,5 @@
 #pragma once
 
-#ifndef __PAGING_FRAMES_H
-#define __PAGING_FRAMES_H
-
 #include "common.h"
 
 #include "string.h"
@@ -18,11 +15,5 @@ extern uint64_t heap_end;
 
 extern void* kernel_end;
 
-
-
-
 // Initializes the frame bitmap based on the total physical memory available
 void init_frames(size_t total_memory);
-
-
-#endif

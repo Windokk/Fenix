@@ -1,5 +1,4 @@
-#ifndef __RTC_H
-#define __RTC_H
+#pragma once
 
 #include "common.h"
 
@@ -16,5 +15,3 @@ void     rtc_init(void);
 void     rtc_read_time(rtc_time_t *out);
 void     rtc_handle_irq(void);
 uint64_t rtc_get_ticks(void);
-
-#endif

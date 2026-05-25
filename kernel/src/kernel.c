@@ -2,9 +2,14 @@
 
 #include "kernel.h"
 #include "memory/paging_pages.h"
+#include "tasks/task.h"
+#include "tasks/shell.h"
 
 #include "interrupts/pic.h"
 #include "interrupts/idt.h"
+#include "interrupts/apic.h"
+
+#include "acpi/acpi.h"
 
 #include "drivers/keyboard.h"
 #include "drivers/mouse.h"
@@ -15,6 +20,11 @@
 
 #include "graphics/gfx.h"
 
+// Saved physical pointer to the multiboot2 info structure.
+// init_paging() maps the first 8 MB at VMA, so acpi_init() can access it
+// via TO_VMA_U64 as long as GRUB placed it below 8 MB (always true in practice).
+static multiboot_info_t *g_mbi_phys = NULL;
+
 void HALT_AND_CATCH_FIRE(const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
@@ -24,10 +34,11 @@ void HALT_AND_CATCH_FIRE(const char *fmt, ...) {
     while(1) {}
 }
 
-void idle() {
-  while(1) {
-    x86_hlt();
-  }
+static void idle_task(void) {
+    while (1) {
+        x86_hlt();
+        task_yield();
+    }
 }
 
 memory_infos_t parse_multiboot2_memory(multiboot_info_t *mbi) {
@@ -90,6 +101,8 @@ void kernel_premain(unsigned long magic, multiboot_info_t* mbi_phys) {
         HALT_AND_CATCH_FIRE("--------- MAGIC NUMBER NOT RECOGNIZED ! ---------\nMAGIC NUMBER RECIEVED : 0x%X\n", (magic));
     }
 
+    g_mbi_phys = mbi_phys;
+
     printf("0x%X", mbi_phys);
 
     init_kernel_vesa(TO_VMA_PTR(multiboot_info_t *, mbi_phys));
@@ -102,74 +115,67 @@ void kernel_premain(unsigned long magic, multiboot_info_t* mbi_phys) {
     init_paging();
     printf("Paging done\n");
 
+    printf("------------ ACPI Initialization -----------\n");
 
-    printf("\n");
+    acpi_init(g_mbi_phys);
 
     printf("------------ PIC Initialization ------------\n");
 
-
     pic_init(false);
-
-    printf("\n");
 
     printf("------------ IDT Initialization ------------\n");
 
     // Setup Interrupt Descriptor table
     idt_init();
 
-    printf("\n");
-
     disable_interrupts();
 
-    // Unmask the 8259 Interrupt (necessary for mouse interrupts)
-    pic_unmask_irq(PIC_8259_INTERRUPT);
+    printf("------------ APIC Initialization -----------\n");
+
+    // Try to switch from legacy 8259 PIC to LAPIC + I/O APIC.
+    // If ACPI didn't find a MADT, apic_init() is a no-op and we stay on PIC.
+    apic_init();
+
+    if (!g_use_apic) {
+        // Legacy PIC path: unmask cascade and device IRQs
+        pic_unmask_irq(PIC_8259_INTERRUPT);
+    }
 
     enable_interrupts();
 
-    printf("\n");
-
-    printf("------------ PS2 Initialization ------------\n\n");
+    printf("------------ PS2 Initialization ------------\n");
 
     ps2_init();
 
-    printf("\n\n");
-    
-
-    printf("--------- Keyboard Initialization ----------\n\n");
+    printf("--------- Keyboard Initialization ----------\n");
 
     keyboard_enable();
 
-    printf("\n\n");
-
-    printf("---------- Mouse Initialization ------------\n\n");
+    printf("---------- Mouse Initialization ------------\n");
 
     mouse_enable();
 
-    printf("\n\n");
-
-    printf("----------- RTC Initialization -------------\n\n");
+    printf("----------- RTC Initialization -------------\n");
 
     rtc_init();
-
-    printf("\n\n");
 
     enable_interrupts();
 }
 
 void kernel_main()
 {
-    rtc_time_t time = {
-      0,
-      0,
-      0,
-      0,
-      0,
-      0  
-    };
-
+    rtc_time_t time = {0,0,0,0,0,0};
     rtc_read_time(&time);
-    
-    printf("Current time : %u/%u/%u %u:%u:%u", time.month, time.day, time.year, time.hours, time.minutes, time.seconds);
+    printf("Current time : %u/%u/%u %u:%u:%u\n",
+           time.month, time.day, time.year,
+           time.hours, time.minutes, time.seconds);
 
-    idle();
+    task_init();
+    task_create(shell_task, "shell");
+    task_create(idle_task,  "idle");
+
+    printf("---------- Task System Ready ----------\n");
+
+    scheduler_start();
+    /* never reached */
 }

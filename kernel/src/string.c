@@ -53,20 +53,76 @@ char* itoa(int value, char* buffer, int base) {
 
 
 void *memset(void* dest, register int value, register uint64_t len) {
-	register unsigned char *ptr = (unsigned char*)dest;
-	while(len-- > 0) {
-		*ptr++ = value;
-	}
+	uint8_t  byte  = (uint8_t)value;
+	uint64_t qword = (uint64_t)byte * 0x0101010101010101ULL;
+	uint8_t *p = (uint8_t *)dest;
+
+	while (len > 0 && ((uint64_t)p & 7)) { *p++ = byte; len--; }
+
+	uint64_t *q = (uint64_t *)p;
+	while (len >= 8) { *q++ = qword; len -= 8; }
+
+	p = (uint8_t *)q;
+	while (len-- > 0) *p++ = byte;
+
 	return dest;
 }
 
 void *memcpy(void *dest, void *src, register uint64_t len) {
-	register unsigned char *bdest = (unsigned char*)dest;
-	register unsigned char *bsrc = (unsigned char*)src;
-	while(len-- > 0) {
-		*bdest++ = *bsrc++;
-	}
+	uint8_t       *d = (uint8_t *)dest;
+	const uint8_t *s = (const uint8_t *)src;
+
+	while (len > 0 && ((uint64_t)d & 7)) { *d++ = *s++; len--; }
+
+	uint64_t       *dq = (uint64_t *)d;
+	const uint64_t *sq = (const uint64_t *)s;
+	while (len >= 8) { *dq++ = *sq++; len -= 8; }
+
+	d = (uint8_t *)dq;
+	s = (const uint8_t *)sq;
+	while (len-- > 0) *d++ = *s++;
+
 	return dest;
+}
+
+void *memmove(void *dest, const void *src, uint64_t len) {
+	uint8_t       *d = (uint8_t *)dest;
+	const uint8_t *s = (const uint8_t *)src;
+
+	if (d == s || len == 0) return dest;
+
+	if (d < s) {
+		while (len > 0 && ((uint64_t)d & 7)) { *d++ = *s++; len--; }
+		uint64_t *dq = (uint64_t *)d; const uint64_t *sq = (const uint64_t *)s;
+		while (len >= 8) { *dq++ = *sq++; len -= 8; }
+		d = (uint8_t *)dq; s = (const uint8_t *)sq;
+		while (len-- > 0) *d++ = *s++;
+	} else {
+		d += len; s += len;
+		while (len > 0 && ((uint64_t)d & 7)) { *--d = *--s; len--; }
+		uint64_t *dq = (uint64_t *)d; const uint64_t *sq = (const uint64_t *)s;
+		while (len >= 8) { *--dq = *--sq; len -= 8; }
+		d = (uint8_t *)dq; s = (const uint8_t *)sq;
+		while (len-- > 0) *--d = *--s;
+	}
+
+	return dest;
+}
+
+void fast_memcpy(void* dst, void* src, size_t s) {
+	size_t qwords    = s / 8;
+	size_t remainder = s % 8;
+
+	__asm__ volatile (
+		"rep movsq"
+		: "+D"(dst), "+S"(src), "+c"(qwords)
+		:
+		: "memory"
+	);
+
+	uint8_t       *d  = (uint8_t *)dst;
+	const uint8_t *sp = (const uint8_t *)src;
+	while (remainder-- > 0) *d++ = *sp++;
 }
 
 int memcmp (const void *str1, const void *str2, size_t count) {
@@ -115,4 +171,16 @@ int strcmp(const char* s1, const char* s2) {
     s2++;
   }
   return *(const unsigned char*)s1 - *(const unsigned char*)s2;
+}
+
+int strncmp(const char* s1, const char* s2, size_t n) {
+    while (n-- > 0) {
+        if (*s1 != *s2)
+            return *(const unsigned char*)s1 - *(const unsigned char*)s2;
+        if (*s1 == '\0')
+            return 0;
+        s1++;
+        s2++;
+    }
+    return 0;
 }

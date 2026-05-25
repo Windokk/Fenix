@@ -93,6 +93,8 @@ void rtc_handle_irq(void) {
     // Without this read the RTC will never fire another IRQ.
     cmos_read(RTC_STATUS_C);
 
+    cursor_blink_tick();
+
     pic_send_eoi(PIC_CMOS_REALTIME_CLOCK_INTERRUPT);
 }
 

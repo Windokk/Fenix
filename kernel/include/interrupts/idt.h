@@ -1,10 +1,8 @@
-#ifndef __IDT_H
-#define __IDT_H
+#pragma once
 
 #include "common.h"
 
 #define IDT_ENTRIES 256
-
 
 typedef struct opts {
     uint8_t stack_OK  : 3;
@@ -32,10 +30,6 @@ typedef struct idt_register {
     uint16_t length;
     uint64_t base;
 } __attribute__((packed)) idt_register_t;
-
-
-
-
 
 extern void vector0(void);
 extern void vector1(void);
@@ -111,7 +105,4 @@ void enable_interrupts();
 
 void disable_interrupts();
 
-
 void idt_init();
-
-#endif

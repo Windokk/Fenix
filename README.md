@@ -11,6 +11,12 @@
 <br>
 </div>
 
+## How to run : 
+
+- Build a cross-compiler (x86_64_elf) : gcc, binutils
+- Install xorriso, nasm, grub2 and qemu
+- Execute run.sh
+
 ## Roadmap (Last Updated May 2026)
 
 ### Phase 1 — Foundation ✅
@@ -35,10 +41,10 @@
 - [x] `printf` output redirected to framebuffer (alongside serial)
 - [x] RTC driver (read real-time clock)
 - [x] PIT driver (timer interrupts, basic tick counter)
-- [ ] Basic on-screen debug console (scrollable text output)
+- [x] Basic on-screen debug console (scrollable text output)
 
 ### Phase 3 — Interactive Shell
-- [ ] Keyboard input line editor (backspace, cursor)
+- [x] Keyboard input line editor (backspace, cursor)
 - [ ] Simple command parser / REPL
 - [ ] Basic built-in commands (`clear`, `help`, `mem`, `uptime`)
 - [ ] Mouse integration in UI (clickable elements)
@@ -67,3 +73,14 @@
 - [ ] ELF binary loader
 - [ ] Pipes and basic IPC
 - [ ] Port a minimal libc (newlib or musl)
+
+## Third-party : 
+### Code :
+
+### Resources : 
+- Fonts : 
+    - Perfect DOS VGA 437 by Zeh Fernando (zeh@zehfernando.com)
+    - Noto Sans by The Noto Project Authors (https://github.com/notofonts/latin-greek-cyrillic)
+- Images : 
+- Video : 
+- Sound/Music : 

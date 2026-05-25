@@ -1,5 +1,4 @@
-#ifndef __COMMON_H
-#define __COMMON_H
+#pragma once
 
 #if __STDC_VERSION__ < 202311L
 typedef _Bool bool;
@@ -70,7 +69,6 @@ typedef unsigned long size_t;
             SQRT_DOUBLE(num) : 0.0) \
 )
 
-
 #define COS(x) ({ \
     float result; \
     __asm__ ( \
@@ -82,7 +80,3 @@ typedef unsigned long size_t;
     ); \
     result; \
 })
-
-
-
-#endif 

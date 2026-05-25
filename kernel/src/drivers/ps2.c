@@ -130,7 +130,7 @@ void ps2_init(void) {
     if (port2_working) config |= 0x02;  // Enable IRQ12
     ps2_write_config(config);
 
-    printf("PS/2 initialization complete\n");
+    printf("PS/2 initialization complete.\n");
 }
 
 

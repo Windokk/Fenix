@@ -140,7 +140,35 @@ void free(void *ptr) {
     coalesce_free_blocks();
 }
 
-void init_heap() {
+void debug_heap_dump()
+{
+    uint32_t total = 0, used = 0, free_bytes = 0, blocks = 0;
+
+    HEAP_WALKER(mb) {
+        blocks++;
+        total += mb->size;
+        if (mb->free) free_bytes += mb->size;
+        else           used      += mb->size;
+    }
+
+    printf("--- heap dump (%u blocks) ---\n", blocks);
+    printf("  total  : %u bytes\n", total);
+    printf("  used   : %u bytes\n", used);
+    printf("  free   : %u bytes\n", free_bytes);
+
+    uint32_t i = 0;
+    HEAP_WALKER(mb) {
+        printf("  [%u] %s  size=%u  addr=0x%X\n",
+               i++,
+               mb->free ? "FREE" : "USED",
+               mb->size,
+               (uint32_t)(uint64_t)mb);
+    }
+    printf("----------------------------\n");
+}
+
+void init_heap()
+{
     root_mblock = (mblock_t*)heap_start;
 
     root_mblock->magic = MBLOCK_MAGIC;
