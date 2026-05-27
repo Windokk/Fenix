@@ -3,11 +3,15 @@
 #include "stdio.h"
 
 #include "interrupts/pic.h"
-#include "interrupts/apic.h"
+#include "interrupts/apic.h"   /* also pulls in acpi/acpi.h → g_acpi, g_use_apic */
 
-#include "drivers/keyboard.h"
+#include "drivers/keyboard.h"  /* also pulls in tasks/task.h → current_task, task_* */
 #include "drivers/mouse.h"
 #include "drivers/rtc.h"
+
+#include "acpi/acpi.h"
+#include "tasks/task.h"
+#include "uacpi_glue.h"
 
 void enable_interrupts() {
     asm volatile ("sti");
@@ -123,25 +127,30 @@ void idt_init() {
 
 void interrupt_handler(isr_ctx_t *regs) {
 
-    uint8_t int_no = regs->int_no;
+    uint8_t int_no   = regs->int_no;
+    bool    preempt  = false;
 
     if (int_no == 33) {
-        // With APIC: the LAPIC prevents re-delivery until EOI, no need to mask.
-        // With PIC: mask/unmask prevents re-entrance.
         if (!g_use_apic) pic_mask_irq(PIC_KEYBOARD_INTERRUPT);
         keyboard_handle_irq();
         if (!g_use_apic) pic_unmask_irq(PIC_KEYBOARD_INTERRUPT);
     }
     else if (int_no == 40) {
         rtc_handle_irq();
+        preempt = true;  /* preempt after EOI, not before */
     }
     else if (int_no == 44) {
         if (!g_use_apic) pic_mask_irq(PIC_PS2_MOUSE_INTERRUPT);
         mouse_handle_irq();
         if (!g_use_apic) pic_unmask_irq(PIC_PS2_MOUSE_INTERRUPT);
     }
+    else if (g_acpi.initialized &&
+             int_no == (uint8_t)(32u + g_acpi.sci_irq)) {
+        /* SCI: dispatch through uACPI when ready, else hand-rolled handler */
+        uacpi_sci_dispatch();
+    }
     else if (int_no >= 32) {
-        // Unknown hardware interrupt: just EOI and continue
+        /* Unknown hardware IRQ — just EOI and return */
         if (g_use_apic) lapic_send_eoi();
         return;
     }
@@ -153,8 +162,15 @@ void interrupt_handler(isr_ctx_t *regs) {
         }
     }
 
-    // With APIC, send EOI to the LAPIC after every hardware interrupt.
-    // Device handlers still call pic_send_eoi() which is harmless when the
-    // 8259 is masked (writes to the PIC command port are ignored).
+    /*
+     * Send EOI before potentially yielding.  If we context-switch here the
+     * LAPIC in-service bit must already be cleared; otherwise the LAPIC will
+     * not deliver any further interrupts until this task runs again.
+     */
     if (g_use_apic) lapic_send_eoi();
+
+    if (preempt && current_task) {
+        task_tick_update();  /* wake any tasks whose sleep timer expired */
+        task_yield();        /* preemptive round-robin */
+    }
 }

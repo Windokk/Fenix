@@ -30,8 +30,9 @@
 #define STATUS_B_PIE     (1 << 6)  // Periodic Interrupt Enable
 
 // Periodic interrupt rate: frequency = 32768 >> (rate - 1)
-// Rate 8 => 256 Hz, rate 6 => 1024 Hz, rate 15 => 2 Hz
-#define RTC_RATE  15
+// Rate 13 => 8 Hz (125 ms/tick) — used as the preemption quantum
+// Rate 15 => 2 Hz (500 ms/tick)
+#define RTC_RATE  13
 
 static uint64_t rtc_ticks = 0;
 

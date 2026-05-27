@@ -133,6 +133,16 @@ static pdpe_t  pdpe_acpi_tables[512]  __attribute__((aligned(4096)));
 static pde_t   pde_acpi_tables[512]   __attribute__((aligned(4096)));
 static pte_t   pte_acpi_tables[4096]  __attribute__((aligned(4096)));
 
+// P4[0x1C8] → 0xFFFFE40000000000  (dynamic MMIO mapping pool)
+// Used by uacpi_kernel_map() for arbitrary physical addresses not covered by
+// the kernel or ACPI table windows.  512 PTEs = 2 MB of virtual address space.
+#define MMIO_POOL_BASE    0xFFFFE40000000000ULL
+#define MMIO_POOL_PAGES   512
+
+static pdpe_t  pdpe_mmio[512]        __attribute__((aligned(4096)));
+static pde_t   pde_mmio[512]         __attribute__((aligned(4096)));
+static pte_t   pte_mmio[MMIO_POOL_PAGES] __attribute__((aligned(4096)));
+
 // P4[0x1E0] → 0xFFFFF00000000000
 // page 0: LAPIC  page 1+: IOAPICs (1 page each, up to 4)
 static pdpe_t  pdpe_apic[512] __attribute__((aligned(4096)));
@@ -156,3 +166,12 @@ void init_paging_acpi_tables(uint64_t phys_base);
 // APIC_MMIO_BASE virtual region. Call after init_paging().
 void init_paging_apic(uint64_t lapic_phys,
                       uint64_t *ioapic_phys, uint32_t ioapic_count);
+
+// Initialize the MMIO pool at MMIO_POOL_BASE. Call once after init_paging().
+void  init_paging_mmio_pool(void);
+
+// Map/unmap arbitrary physical MMIO pages from the pool.
+// paging_map_mmio handles misaligned addresses and rounds size up to pages.
+// Returns NULL if the pool is exhausted.
+void *paging_map_mmio(uint64_t phys, uint64_t size);
+void  paging_unmap_mmio(void *virt, uint64_t size);

@@ -13,11 +13,12 @@ typedef enum {
 } task_state_t;
 
 typedef struct task_struct {
-    uint64_t     rsp;        /* saved stack pointer — must stay first (asm depends on offset 0) */
+    uint64_t     rsp;          /* saved stack pointer — must stay first (asm depends on offset 0) */
     task_state_t state;
     uint32_t     id;
     char         name[32];
-    uint8_t     *stack;      /* heap-allocated stack base */
+    uint8_t     *stack;        /* heap-allocated stack base */
+    uint64_t     wakeup_tick;  /* non-zero: wake when rtc_get_ticks() >= this value */
 } task_t;
 
 extern task_t *current_task;
@@ -29,4 +30,31 @@ void    task_yield(void);
 void    task_block(void);
 void    task_unblock(task_t *task);
 void    task_exit(void);
+void    task_sleep(uint64_t ticks);      /* block for N RTC ticks then auto-wake */
+void    task_tick_update(void);          /* called from timer ISR to wake sleeping tasks */
 void    scheduler_start(void);
+
+// ─── Mutex ────────────────────────────────────────────────────────────────────
+
+#define MUTEX_MAX_WAITERS 8
+
+typedef struct {
+    volatile int  locked;
+    task_t       *owner;
+    task_t       *waiters[MUTEX_MAX_WAITERS];
+    uint32_t      waiter_count;
+} mutex_t;
+
+void mutex_init(mutex_t *m);
+void mutex_lock(mutex_t *m);    /* spin-yields until acquired */
+void mutex_unlock(mutex_t *m);
+
+// ─── Semaphore ────────────────────────────────────────────────────────────────
+
+typedef struct {
+    volatile int32_t count;
+} semaphore_t;
+
+void sem_init(semaphore_t *s, int32_t initial);
+void sem_wait(semaphore_t *s);    /* P: decrement; spin-yields if count <= 0 */
+void sem_signal(semaphore_t *s);  /* V: increment */

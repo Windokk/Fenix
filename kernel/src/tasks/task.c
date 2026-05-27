@@ -1,4 +1,5 @@
 #include "tasks/task.h"
+#include "drivers/rtc.h"
 #include "memory/heap.h"
 #include "string.h"
 #include "stdio.h"
@@ -20,14 +21,29 @@ void task_init(void) {
 }
 
 task_t *task_create(void (*fn)(void), const char *name) {
-    if (task_count >= MAX_TASKS) {
-        printf("TASK: max tasks reached\n");
-        return NULL;
+    // Prefer reusing a dead slot so the table doesn't fill up permanently.
+    task_t *t = NULL;
+    for (uint32_t i = 0; i < task_count; i++) {
+        if (task_table[i].state == TASK_DEAD) {
+            if (task_table[i].stack) {
+                free(task_table[i].stack);
+                task_table[i].stack = NULL;
+            }
+            t = &task_table[i];
+            break;
+        }
+    }
+    if (!t) {
+        if (task_count >= MAX_TASKS) {
+            printf("TASK: max tasks reached\n");
+            return NULL;
+        }
+        t = &task_table[task_count++];
     }
 
-    task_t *t = &task_table[task_count++];
-    t->id    = next_id++;
-    t->state = TASK_READY;
+    t->id          = next_id++;
+    t->state       = TASK_READY;
+    t->wakeup_tick = 0;
 
     strncpy(t->name, name, sizeof(t->name) - 1);
     t->name[sizeof(t->name) - 1] = '\0';
@@ -35,7 +51,7 @@ task_t *task_create(void (*fn)(void), const char *name) {
     t->stack = (uint8_t *)malloc(TASK_STACK_SIZE);
     if (!t->stack) {
         printf("TASK: failed to allocate stack for '%s'\n", name);
-        task_count--;
+        t->state = TASK_DEAD;
         return NULL;
     }
 
@@ -43,15 +59,9 @@ task_t *task_create(void (*fn)(void), const char *name) {
     uint64_t *sp = (uint64_t *)((uint64_t)(t->stack + TASK_STACK_SIZE) & ~0xFULL);
 
     /* Initial stack frame consumed by task_switch on first resume:
-     *
      *   [ task_exit ]  <-- fn returns here
      *   [ fn        ]  <-- ret target inside task_switch
-     *   [ r15 = 0   ]
-     *   [ r14 = 0   ]
-     *   [ r13 = 0   ]
-     *   [ r12 = 0   ]
-     *   [ rbp = 0   ]
-     *   [ rbx = 0   ]  <-- t->rsp points here
+     *   [ r15 = 0 ] [ r14 ] [ r13 ] [ r12 ] [ rbp ] [ rbx ]  <-- t->rsp
      */
     *--sp = (uint64_t)task_exit;
     *--sp = (uint64_t)fn;
@@ -74,7 +84,7 @@ task_t *task_locate(const char *name) {
     return NULL;
 }
 
-/* Pick the next READY task after current, wrapping round-robin. */
+/* Round-robin: pick the next READY task after the current one. */
 static task_t *scheduler_next(void) {
     uint32_t start = (uint32_t)(current_task - task_table + 1) % task_count;
     for (uint32_t i = 0; i < task_count; i++) {
@@ -114,10 +124,33 @@ void task_unblock(task_t *task) {
 
 void task_exit(void) {
     printf("TASK: '%s' exited\n", current_task->name);
+    // Stack is freed when this slot is reused by task_create().
     current_task->state = TASK_DEAD;
     task_yield();
-    while (1) {} /* unreachable */
+    while (1) {}
 }
+
+// ─── Timed sleep ──────────────────────────────────────────────────────────────
+
+void task_sleep(uint64_t ticks) {
+    current_task->wakeup_tick = rtc_get_ticks() + ticks;
+    task_block();
+}
+
+/* Called from the timer ISR (with EOI already sent) to wake sleeping tasks. */
+void task_tick_update(void) {
+    uint64_t now = rtc_get_ticks();
+    for (uint32_t i = 0; i < task_count; i++) {
+        task_t *t = &task_table[i];
+        if (t->state == TASK_BLOCKED && t->wakeup_tick > 0 &&
+            now >= t->wakeup_tick) {
+            t->wakeup_tick = 0;
+            task_unblock(t);
+        }
+    }
+}
+
+// ─── Scheduler start ──────────────────────────────────────────────────────────
 
 void scheduler_start(void) {
     if (task_count == 0) return;
@@ -126,4 +159,49 @@ void scheduler_start(void) {
     uint64_t dummy;
     task_switch(&dummy, current_task->rsp);
     /* never returns */
+}
+
+// ─── Mutex (spin-yield) ───────────────────────────────────────────────────────
+
+void mutex_init(mutex_t *m) {
+    m->locked       = 0;
+    m->owner        = NULL;
+    m->waiter_count = 0;
+}
+
+void mutex_lock(mutex_t *m) {
+    while (__sync_lock_test_and_set(&m->locked, 1)) {
+        /* Lock is held — yield to let the holder run, then retry. */
+        if (current_task) task_yield();
+        else asm volatile("pause");
+    }
+    m->owner = current_task;
+}
+
+void mutex_unlock(mutex_t *m) {
+    m->owner = NULL;
+    __sync_lock_release(&m->locked);
+}
+
+// ─── Semaphore (spin-yield) ───────────────────────────────────────────────────
+
+void sem_init(semaphore_t *s, int32_t initial) {
+    __atomic_store_n(&s->count, initial, __ATOMIC_RELAXED);
+}
+
+void sem_wait(semaphore_t *s) {
+    while (1) {
+        int32_t old = __atomic_load_n(&s->count, __ATOMIC_ACQUIRE);
+        if (old > 0 &&
+            __atomic_compare_exchange_n(&s->count, &old, old - 1,
+                                        false, __ATOMIC_ACQ_REL,
+                                        __ATOMIC_RELAXED))
+            return;
+        if (current_task) task_yield();
+        else asm volatile("pause");
+    }
+}
+
+void sem_signal(semaphore_t *s) {
+    __atomic_fetch_add(&s->count, 1, __ATOMIC_RELEASE);
 }

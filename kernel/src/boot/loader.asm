@@ -103,38 +103,31 @@ check_long_mode:
 
 
 setup_page_tables:
-    ; Map the P4 entry to the P3 table
-    mov eax, p3_table - KERNEL_VMA     ; LMA adress of p3 table
-    or eax, 0b11                       ; Present + Writable
-    mov [p4_table - KERNEL_VMA], eax   ; Store LMA adress of p3 table into p4 table's (physical adress) first entry
-
-    ; Map the P3 entry to the P2 table
-    mov eax, p2_table - KERNEL_VMA    ; LMA adress of p2 table
-    or eax, 0b11                       ; Present + Writable
-    mov [p3_table - KERNEL_VMA], eax   ; Store in P3 entry
-
-    ; Map the P2 entry to the P1 table
-    mov eax, p1_table - KERNEL_VMA    ; Adjust for virtual address
-    or eax, 0b11                       ; Present + Writable
-    mov [p2_table - KERNEL_VMA], eax   ; Store in P2 entry
-
-    ; Map the higher-half P4 entry (index 256) for KERNEL_VMA = 0xFFFF800000000000
+    ; PML4[0] -> p3_table  (identity)
     mov eax, p3_table - KERNEL_VMA
     or eax, 0b11
+    mov [p4_table - KERNEL_VMA], eax
+
+    ; PML4[256] -> same p3_table  (higher-half at 0xFFFF800000000000)
     mov [p4_table - KERNEL_VMA + 256 * 8], eax
 
-    ; Map 4KB pages in the P1 table (higher-half mapping)
-    mov ecx, 0             ; Page index
+    ; p3_table[0] -> p2_table
+    mov eax, p2_table - KERNEL_VMA
+    or eax, 0b11
+    mov [p3_table - KERNEL_VMA], eax
 
-higher_half_mapping:
-    mov eax, 0x1000        ; 4KB page size
-    mul ecx                ; Calculate the physical address of the ecx-th page
-    or eax, 0b11           ; Present + Writable
-    mov [p1_table - KERNEL_VMA + ecx * 8], eax  ; Store the page entry (adjusted for virtual address)
-
+    ; Map 4 x 2MB huge pages (0-8MB) in p2_table.
+    ; PDE flags: Present(1) + Writable(2) + PageSize(0x80) = 0x83
+    ; This covers the kernel binary AND wherever GRUB places the multiboot struct.
+    mov ecx, 0
+.map_huge:
+    mov eax, 0x200000
+    mul ecx
+    or eax, 0x83
+    mov [p2_table - KERNEL_VMA + ecx * 8], eax
     inc ecx
-    cmp ecx, 512           ; 512 entries for a 2MB region
-    jne higher_half_mapping
+    cmp ecx, 4
+    jne .map_huge
 
     ret
 

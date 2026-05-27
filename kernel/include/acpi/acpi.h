@@ -161,6 +161,42 @@ typedef struct {
 #define ISO_TRIGGER_EDGE      0x4
 #define ISO_TRIGGER_LEVEL     0xC
 
+// ─── HPET (High Precision Event Timer) ───────────────────────────────────────
+
+typedef struct {
+    acpi_sdt_header_t header;
+    uint32_t          event_timer_block_id;
+    acpi_gas_t        base_address;
+    uint8_t           hpet_number;
+    uint16_t          minimum_tick;
+    uint8_t           page_protection;
+} __attribute__((packed)) acpi_hpet_t;
+
+// ─── MCFG (PCI Express memory-mapped config) ──────────────────────────────────
+
+#define ACPI_MAX_MCFG  4
+
+typedef struct {
+    uint64_t base_address;  // PCIe ECAM base physical address
+    uint16_t pci_segment;   // PCI segment group number
+    uint8_t  start_bus;
+    uint8_t  end_bus;
+    uint32_t _reserved;
+} __attribute__((packed)) mcfg_alloc_t;
+
+typedef struct {
+    acpi_sdt_header_t header;
+    uint64_t          _reserved;
+    // followed by mcfg_alloc_t entries
+} __attribute__((packed)) acpi_mcfg_t;
+
+// ─── PM1 Status Register bits (read / write-to-clear) ────────────────────────
+
+#define PM1_STS_PWRBTN  (1 << 8)   // power button event
+#define PM1_STS_SLPBTN  (1 << 9)   // sleep button event
+#define PM1_STS_RTC_STS (1 << 10)  // RTC alarm
+#define PM1_STS_WAKE    (1 << 15)  // wake status
+
 // ─── Global ACPI state ────────────────────────────────────────────────────────
 
 #define ACPI_MAX_IOAPICS  4
@@ -188,12 +224,14 @@ typedef struct {
     uint32_t iso_count;
     acpi_iso_t isos[ACPI_MAX_ISOS];
 
-    // From FADT — power management
+    // From FADT — PM1 control (shutdown/sleep)
     uint16_t pm1a_cnt_port;
     uint16_t pm1b_cnt_port;   // 0 if absent
-    uint16_t slp_typa;        // S5 sleep type for PM1a (pre-shifted << 10)
-    uint16_t slp_typb;        // S5 sleep type for PM1b
-    bool     s5_found;
+
+    // From FADT — PM1 event block (SCI fixed events)
+    uint32_t pm1a_evt_blk;
+    uint32_t pm1b_evt_blk;   // 0 if absent
+    uint8_t  pm1_evt_len;
 
     // From FADT — reset
     uint8_t  reset_space;     // 0=MMIO, 1=I/O port
@@ -201,15 +239,38 @@ typedef struct {
     uint8_t  reset_value;
     bool     reset_valid;
 
-    uint16_t sci_irq;
+    uint16_t sci_irq;         // GSI of the ACPI SCI interrupt
+
+    // HPET
+    bool     hpet_found;
+    uint64_t hpet_phys;
+    uint16_t hpet_min_tick;
+
+    // PCIe ECAM (from MCFG)
+    mcfg_alloc_t mcfg[ACPI_MAX_MCFG];
+    uint32_t     mcfg_count;
 } acpi_state_t;
 
 extern acpi_state_t g_acpi;
+
+/* Physical address of the RSDP — set during acpi_init(), used by uACPI. */
+extern uint64_t g_rsdp_phys;
+
+/* Base physical address of the 16 MB ACPI table window — used by uacpi_impl.c
+ * to decide whether a physical address is already mapped. */
+extern uint64_t g_acpi_table_phys_base;
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 // Call after init_paging(). mbi_phys is the physical pointer passed by GRUB.
 void acpi_init(void *mbi_phys);
 
+// Enter sleep state Sx (0–5). Returns false if the state is unavailable.
+// acpi_enter_sleep(5) is equivalent to acpi_shutdown().
+bool acpi_enter_sleep(uint8_t sx);
+
 void acpi_shutdown(void);
 void acpi_reboot(void);
+
+// Called from the SCI IRQ handler to process PM1 fixed events.
+void acpi_sci_handle(void);

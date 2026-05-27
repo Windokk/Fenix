@@ -225,6 +225,10 @@ void apic_init(void) {
     ioapic_unmask_irq(8);   // RTC
     ioapic_unmask_irq(12);  // PS/2 mouse
 
+    // Unmask the ACPI SCI interrupt so fixed events (power button etc.) arrive
+    if (g_acpi.sci_irq < 16)
+        ioapic_unmask_irq((uint8_t)g_acpi.sci_irq);
+
     printf("[APIC] Active — LAPIC + %u IOAPIC(s) configured\n",
            g_acpi.ioapic_count);
 }

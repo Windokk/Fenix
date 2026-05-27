@@ -26,6 +26,11 @@ KERNEL_BUILD_DIR = $(BUILD_DIR)/kernel
 KERNEL_C_O = $(KERNEL_BUILD_DIR)/%.c.o
 KERNEL_ASM_O = $(KERNEL_BUILD_DIR)/%.asm.o
 
+UACPI_SRC = $(shell find kernel/vendor/uacpi/source -type f -name "*.c")
+UACPI_OBJ = $(patsubst kernel/vendor/uacpi/source/%.c,build/uacpi/%.c.o,$(UACPI_SRC))
+UACPI_FLAGS = -DUACPI_OVERRIDE_TYPES \
+              -Ikernel/vendor/uacpi/include -Ikernel/include
+
 BOOT_ASM_SRC = $(shell find kernel/src/boot -type f \( -name "*.asm" \) )
 BOOT_ASM_OBJ = $(patsubst kernel/src/boot/%.asm, build/boot/%.o, $(BOOT_ASM_SRC))
 
@@ -55,15 +60,24 @@ $(KERNEL_ASM_O): kernel/src/%.asm
 #
 
 # Rule to build kernel's .c.o files
+# uACPI include path and type override are added globally so that uacpi_impl.c
+# (which lives in kernel/src/) can include <uacpi/...> headers.
 $(KERNEL_C_O): kernel/src/%.c
 	@mkdir -p "$(dir $@)"
-	@$(CC) -c $(CCFLAGS) -L$(LIBDIR) -I$(INCDIR) -Ikernel/include -o $@ $<
+	@$(CC) -c $(CCFLAGS) -L$(LIBDIR) -I$(INCDIR) -Ikernel/include \
+	       -DUACPI_OVERRIDE_TYPES -Ikernel/vendor/uacpi/include -o $@ $<
+#
+
+# Rule to build uACPI vendor sources
+build/uacpi/%.c.o: kernel/vendor/uacpi/source/%.c
+	@mkdir -p "$(dir $@)"
+	@$(CC) -c $(CCFLAGS) $(UACPI_FLAGS) -o $@ $<
 #
 
 
 # Rule to link boot.o and kernel.o to create fenix.bin
-$(FENIX_BIN): $(KERNEL_OBJ) $(BOOT_ASM_OBJ)
-	@$(CC) -I$(INCDIR) $(LDFLAGS) -T linker.ld -o $@ $^ 
+$(FENIX_BIN): $(KERNEL_OBJ) $(BOOT_ASM_OBJ) $(UACPI_OBJ)
+	@$(CC) -I$(INCDIR) $(LDFLAGS) -T linker.ld -o $@ $^
 	@echo "Built fenix.bin"
 	
 #

@@ -11,6 +11,11 @@
 
 #include "acpi/acpi.h"
 
+#include <uacpi/uacpi.h>
+#include <uacpi/event.h>
+#include <uacpi/sleep.h>
+#include "uacpi_glue.h"
+
 #include "drivers/keyboard.h"
 #include "drivers/mouse.h"
 #include "drivers/ps2.h"
@@ -32,6 +37,13 @@ void HALT_AND_CATCH_FIRE(const char *fmt, ...) {
     va_end(args);
     x86_hlt(); 
     while(1) {}
+}
+
+static uacpi_interrupt_ret power_button_handler(uacpi_handle ctx) {
+    (void)ctx;
+    printf("[ACPI] Power button pressed — shutting down\n");
+    acpi_enter_sleep(5);
+    return UACPI_INTERRUPT_HANDLED;
 }
 
 static void idle_task(void) {
@@ -160,6 +172,36 @@ void kernel_premain(unsigned long magic, multiboot_info_t* mbi_phys) {
     rtc_init();
 
     enable_interrupts();
+
+    printf("---------- uACPI Initialization ----------\n");
+    serial_print("[uACPI] calling uacpi_initialize\n");
+
+    /* UACPI_FLAG_NO_ACPI_MODE: acpi_init() already enabled ACPI mode via SMI_CMD */
+    uacpi_status ust = uacpi_initialize(UACPI_FLAG_NO_ACPI_MODE);
+    serial_print("[uACPI] initialize done\n");
+    if (ust == UACPI_STATUS_OK) {
+        serial_print("[uACPI] calling namespace_load\n");
+        ust = uacpi_namespace_load();
+        serial_print("[uACPI] namespace_load done\n");
+        if (ust == UACPI_STATUS_OK) {
+            serial_print("[uACPI] calling namespace_initialize\n");
+            ust = uacpi_namespace_initialize();
+            serial_print("[uACPI] namespace_initialize done\n");
+            if (ust == UACPI_STATUS_OK) {
+                g_uacpi_ready = true;
+                printf("[uACPI] Full namespace initialized\n");
+                uacpi_install_fixed_event_handler(
+                    UACPI_FIXED_EVENT_POWER_BUTTON,
+                    power_button_handler, UACPI_NULL);
+            } else {
+                printf("[uACPI] namespace_initialize failed: 0x%X\n", (uint32_t)ust);
+            }
+        } else {
+            printf("[uACPI] namespace_load failed: 0x%X\n", (uint32_t)ust);
+        }
+    } else {
+        printf("[uACPI] initialize failed: 0x%X\n", (uint32_t)ust);
+    }
 }
 
 void kernel_main()

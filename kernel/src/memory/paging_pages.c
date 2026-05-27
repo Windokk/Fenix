@@ -117,6 +117,70 @@ void init_paging_acpi_tables(uint64_t phys_base) {
     x86_tlb_flush_all();
 }
 
+static uint8_t mmio_bitmap[MMIO_POOL_PAGES / 8];  /* one bit per page */
+
+void init_paging_mmio_pool(void) {
+    memset(pdpe_mmio,   0, sizeof(pdpe_t) * 512);
+    memset(pde_mmio,    0, sizeof(pde_t)  * 512);
+    memset(pte_mmio,    0, sizeof(pte_t)  * MMIO_POOL_PAGES);
+    memset(mmio_bitmap, 0, sizeof(mmio_bitmap));
+
+    pml4e[0x1C8].all = TO_PHYS_U64(pdpe_mmio) | 3;
+    pdpe_mmio[0].all = TO_PHYS_U64(pde_mmio)  | 3;
+    pde_mmio[0].all  = TO_PHYS_U64(pte_mmio)  | 3;
+
+    x86_tlb_flush_all();
+}
+
+/* Find n contiguous free pages; mark them used and return first index, or -1. */
+static int mmio_alloc(uint32_t n) {
+    for (uint32_t start = 0; start + n <= (uint32_t)MMIO_POOL_PAGES; ) {
+        uint32_t i;
+        for (i = 0; i < n; i++) {
+            if (mmio_bitmap[(start + i) / 8] & (1u << ((start + i) & 7u))) {
+                start += i + 1;
+                break;
+            }
+        }
+        if (i == n) {
+            for (uint32_t j = 0; j < n; j++)
+                mmio_bitmap[(start + j) / 8] |= 1u << ((start + j) & 7u);
+            return (int)start;
+        }
+    }
+    return -1;
+}
+
+void *paging_map_mmio(uint64_t phys, uint64_t size) {
+    uint64_t offset       = phys & 0xFFF;
+    uint64_t phys_aligned = phys & ~(uint64_t)0xFFF;
+    uint64_t total        = (size + offset + 0xFFF) & ~(uint64_t)0xFFF;
+    uint32_t npages       = (uint32_t)(total >> 12);
+
+    int slot = mmio_alloc(npages);
+    if (slot < 0) return NULL;
+
+    for (uint32_t i = 0; i < npages; i++)
+        pte_mmio[slot + i].all = (phys_aligned + (uint64_t)i * PAGE_SIZE) | 0x13;
+
+    x86_tlb_flush_all();
+    return (void *)(MMIO_POOL_BASE + (uint64_t)slot * PAGE_SIZE + offset);
+}
+
+void paging_unmap_mmio(void *virt, uint64_t size) {
+    uint64_t v       = (uint64_t)virt;
+    uint64_t voffset = v & 0xFFF;
+    uint32_t slot    = (uint32_t)((v - voffset - MMIO_POOL_BASE) >> 12);
+    uint64_t total   = (size + voffset + 0xFFF) & ~(uint64_t)0xFFF;
+    uint32_t npages  = (uint32_t)(total >> 12);
+
+    for (uint32_t i = 0; i < npages; i++) {
+        pte_mmio[slot + i].all = 0;
+        mmio_bitmap[(slot + i) / 8] &= ~(1u << ((slot + i) & 7u));
+    }
+    x86_tlb_flush_all();
+}
+
 void init_paging_apic(uint64_t lapic_phys,
                       uint64_t *ioapic_phys, uint32_t ioapic_count) {
     memset(pdpe_apic, 0, sizeof(pdpe_t)  * 512);
