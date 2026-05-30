@@ -7,8 +7,16 @@
 ; into the new task (via ret).
 
 global task_switch
+global task_trampoline
+extern task_exit
 
 section .text
+
+task_trampoline:
+    sti
+    sub rsp, 8
+    call rbx
+    call task_exit
 
 task_switch:
     push rbx

@@ -32,7 +32,7 @@
 // Periodic interrupt rate: frequency = 32768 >> (rate - 1)
 // Rate 13 => 8 Hz (125 ms/tick) — used as the preemption quantum
 // Rate 15 => 2 Hz (500 ms/tick)
-#define RTC_RATE  13
+#define RTC_RATE  15
 
 static uint64_t rtc_ticks = 0;
 

@@ -70,6 +70,9 @@ extern void vector43(void);
 /* Mouse  interrupt */
 extern void vector44(void);
 
+/* LAPIC Timer / Scheduler tick */
+extern void vector64(void);
+
 struct isr_ctx_struct {
 	uint64_t r15;
 	uint64_t r14;

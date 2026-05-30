@@ -3,7 +3,7 @@
 #include "memory/paging_pages.h"
 #include "stdio.h"
 #include "string.h"
-#include "uacpi_glue.h"
+#include "acpi/uacpi_glue.h"
 #include <uacpi/sleep.h>
 
 acpi_state_t g_acpi = {0};
@@ -24,7 +24,7 @@ typedef struct {
     uint8_t  tags[0];
 } mb2_info_t;
 
-// ─── Physical → virtual translation for ACPI tables ──────────────────────────
+// ─── Physical => virtual translation for ACPI tables ──────────────────────────
 
 static inline void *acpi_phys_to_virt(uint64_t phys) {
     if (phys < (8ULL << 20))
@@ -91,6 +91,9 @@ static void acpi_parse_fadt(void) {
     g_acpi.pm1b_evt_blk  = fadt->pm1b_event_blk;
     g_acpi.pm1_evt_len   = fadt->pm1_evt_len;
 
+    g_acpi.pm_tmr_port   = fadt->pm_tmr_blk;
+    g_acpi.pm_tmr_32bit  = fadt->pm_tmr_len == 4;
+    
     if (fadt->header.revision >= 2 && (fadt->flags & FADT_FLAG_RESET_REG_VALID)) {
         g_acpi.reset_space = fadt->reset_reg.address_space;
         g_acpi.reset_addr  = fadt->reset_reg.address;
@@ -100,10 +103,10 @@ static void acpi_parse_fadt(void) {
 
     // Enable ACPI mode if the firmware hasn't done so yet
     if (fadt->smi_cmd && fadt->acpi_enable) {
-        if (!(inp(g_acpi.pm1a_cnt_port) & 0x1)) {
+        if (!(inw(g_acpi.pm1a_cnt_port) & 0x1)) {
             outb((uint16_t)fadt->smi_cmd, fadt->acpi_enable);
             for (int t = 0; t < 3000; t++) {
-                if (inp(g_acpi.pm1a_cnt_port) & 0x1) break;
+                if (inw(g_acpi.pm1a_cnt_port) & 0x1) break;
             }
         }
     }
@@ -350,13 +353,13 @@ void acpi_sci_handle(void) {
     if (!g_acpi.initialized || !g_acpi.pm1a_evt_blk) return;
 
     // Read PM1 status registers (offset 0 within each event block)
-    uint16_t sts_a = inp((uint16_t)g_acpi.pm1a_evt_blk);
+    uint16_t sts_a = inw((uint16_t)g_acpi.pm1a_evt_blk);
     uint16_t sts_b = g_acpi.pm1b_evt_blk
-                     ? inp((uint16_t)g_acpi.pm1b_evt_blk) : 0;
+                     ? inw((uint16_t)g_acpi.pm1b_evt_blk) : 0;
 
     // Write 1 to clear the bits that fired (write-to-clear semantics)
-    if (sts_a) outp((uint16_t)g_acpi.pm1a_evt_blk, sts_a);
-    if (sts_b) outp((uint16_t)g_acpi.pm1b_evt_blk, sts_b);
+    if (sts_a) outw((uint16_t)g_acpi.pm1a_evt_blk, sts_a);
+    if (sts_b) outw((uint16_t)g_acpi.pm1b_evt_blk, sts_b);
 
     uint16_t sts = sts_a | sts_b;
 

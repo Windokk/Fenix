@@ -95,8 +95,8 @@ void uacpi_kernel_free(void *mem) {
 // Timing
 
 uacpi_u64 uacpi_kernel_get_nanoseconds_since_boot(void) {
-    /* RTC at 8 Hz => 1 tick = 125,000,000 ns */
-    return rtc_get_ticks() * 125000000ULL;
+    /* RTC at 2 Hz => 1 tick = 500,000,000 ns */
+    return rtc_get_ticks() * 500000000ULL;
 }
 
 void uacpi_kernel_stall(uacpi_u8 usec) {
@@ -107,8 +107,8 @@ void uacpi_kernel_stall(uacpi_u8 usec) {
 
 void uacpi_kernel_sleep(uacpi_u64 msec) {
     if (current_task) {
-        /* 8 Hz RTC => 1 tick ≈ 125 ms; round up so minimum sleep is 1 tick */
-        uint64_t ticks = (msec + 124) / 125;
+        /* 2 Hz RTC => 1 tick ≈ 500 ms; round up so minimum sleep is 1 tick */
+        uint64_t ticks = (msec + 499) / 500;
         if (ticks == 0) ticks = 1;
         task_sleep(ticks);
     } else {
@@ -303,13 +303,13 @@ static uint32_t pci_cf8_addr(uint8_t bus, uint8_t dev, uint8_t fn, uint32_t off)
 }
 
 static uint32_t pci_read32(pci_device_impl_t *d, uint32_t off) {
-    outd(0xCF8, pci_cf8_addr(d->bus, d->device, d->function, off));
-    return ind(0xCFC);
+    outl(0xCF8, pci_cf8_addr(d->bus, d->device, d->function, off));
+    return inl(0xCFC);
 }
 
 static void pci_write32(pci_device_impl_t *d, uint32_t off, uint32_t val) {
-    outd(0xCF8, pci_cf8_addr(d->bus, d->device, d->function, off));
-    outd(0xCFC, val);
+    outl(0xCF8, pci_cf8_addr(d->bus, d->device, d->function, off));
+    outl(0xCFC, val);
 }
 
 uacpi_status uacpi_kernel_pci_device_open(
@@ -409,14 +409,14 @@ uacpi_status uacpi_kernel_io_read8(
 uacpi_status uacpi_kernel_io_read16(
     uacpi_handle h, uacpi_size off, uacpi_u16 *out)
 {
-    *out = inp((uint16_t)(((io_range_impl_t *)h)->base + off));
+    *out = inw((uint16_t)(((io_range_impl_t *)h)->base + off));
     return UACPI_STATUS_OK;
 }
 
 uacpi_status uacpi_kernel_io_read32(
     uacpi_handle h, uacpi_size off, uacpi_u32 *out)
 {
-    *out = ind((uint16_t)(((io_range_impl_t *)h)->base + off));
+    *out = inl((uint16_t)(((io_range_impl_t *)h)->base + off));
     return UACPI_STATUS_OK;
 }
 
@@ -430,14 +430,14 @@ uacpi_status uacpi_kernel_io_write8(
 uacpi_status uacpi_kernel_io_write16(
     uacpi_handle h, uacpi_size off, uacpi_u16 val)
 {
-    outp((uint16_t)(((io_range_impl_t *)h)->base + off), val);
+    outw((uint16_t)(((io_range_impl_t *)h)->base + off), val);
     return UACPI_STATUS_OK;
 }
 
 uacpi_status uacpi_kernel_io_write32(
     uacpi_handle h, uacpi_size off, uacpi_u32 val)
 {
-    outd((uint16_t)(((io_range_impl_t *)h)->base + off), val);
+    outl((uint16_t)(((io_range_impl_t *)h)->base + off), val);
     return UACPI_STATUS_OK;
 }
 

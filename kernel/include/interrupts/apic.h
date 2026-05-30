@@ -15,7 +15,7 @@
 #define APIC_MMIO_BASE     0xFFFFF00000000000ULL
 #define LAPIC_VIRT_BASE    (APIC_MMIO_BASE + 0x0000ULL)
 #define IOAPIC_VIRT_BASE   (APIC_MMIO_BASE + 0x1000ULL)  // IOAPIC #0
-#define IOAPIC_VIRT_STRIDE 0x1000ULL                       // 4 KB per IOAPIC
+#define IOAPIC_VIRT_STRIDE 0x1000ULL                     // 4 KB per IOAPIC
 
 // ─── LAPIC register offsets (relative to LAPIC_VIRT_BASE) ────────────────────
 
@@ -33,6 +33,9 @@
 #define LAPIC_LVT_LINT0   0x350   // LVT LINT0
 #define LAPIC_LVT_LINT1   0x360   // LVT LINT1
 #define LAPIC_LVT_ERROR   0x370   // LVT Error
+#define LAPIC_TICR        0x380   // Timer Initial Count Register
+#define LAPIC_TCCR        0x390   // Timer Current Count Register
+#define LAPIC_TDCR        0x3E0   // Timer Divide Configuration Register
 
 // SVR flags
 #define LAPIC_SVR_ENABLE  (1 << 8)
@@ -41,6 +44,10 @@
 // LVT flags
 #define LAPIC_LVT_MASKED  (1 << 16)
 #define LAPIC_LVT_NMI     (0x4 << 8)   // NMI delivery mode
+
+// PM Timer flags
+#define LAPIC_TIMER_PERIODIC (1 << 17)
+#define LAPIC_TIMER_ONESHOT (0)
 
 // ─── I/O APIC register indices ────────────────────────────────────────────────
 //
@@ -84,3 +91,7 @@ void ioapic_unmask_irq(uint8_t isa_irq);
 
 // Returns the GSI for a given ISA IRQ (consulting the ISO table).
 uint32_t acpi_irq_to_gsi(uint8_t isa_irq);
+
+extern uint32_t lapic_read(uint32_t reg);
+
+extern void lapic_write(uint32_t reg, uint32_t val);

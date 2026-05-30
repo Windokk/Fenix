@@ -3,9 +3,11 @@
 #include "memory/heap.h"
 #include "string.h"
 #include "stdio.h"
+#include "interrupts/idt.h"
 
 /* Defined in task_switch.asm */
 extern void task_switch(uint64_t *old_rsp, uint64_t new_rsp);
+extern void task_trampoline();
 
 task_t *current_task = NULL;
 
@@ -59,18 +61,18 @@ task_t *task_create(void (*fn)(void), const char *name) {
     uint64_t *sp = (uint64_t *)((uint64_t)(t->stack + TASK_STACK_SIZE) & ~0xFULL);
 
     /* Initial stack frame consumed by task_switch on first resume:
-     *   [ task_exit ]  <-- fn returns here
-     *   [ fn        ]  <-- ret target inside task_switch
-     *   [ r15 = 0 ] [ r14 ] [ r13 ] [ r12 ] [ rbp ] [ rbx ]  <-- t->rsp
-     */
+    *   [ task_exit ]  <-- fn returns here
+    *   [ task_trampoline ]  <-- ret target inside task_switch
+    *   [ rbx = fn ] [ rbp = 0 ] [ r12 = 0 ] [ r13 = 0 ] [ r14 = 0 ] [ r15 = 0 ]  <-- t->rsp
+    */
     *--sp = (uint64_t)task_exit;
-    *--sp = (uint64_t)fn;
-    *--sp = 0; /* r15 */
-    *--sp = 0; /* r14 */
-    *--sp = 0; /* r13 */
-    *--sp = 0; /* r12 */
+    *--sp = (uint64_t)task_trampoline;
+    *--sp = (uint64_t)fn;/* rbx <==> fn */
     *--sp = 0; /* rbp */
-    *--sp = 0; /* rbx */
+    *--sp = 0; /* r12 */
+    *--sp = 0; /* r13 */
+    *--sp = 0; /* r14 */
+    *--sp = 0; /* r15 */
 
     t->rsp = (uint64_t)sp;
     return t;
@@ -98,10 +100,17 @@ static task_t *scheduler_next(void) {
 }
 
 void task_yield(void) {
+    uint64_t rflags;
+    asm volatile("pushfq; pop %0; cli" : "=r"(rflags));
+
     task_t *prev = current_task;
     task_t *next = scheduler_next();
 
-    if (!next || next == prev) return;
+    if (!next || next == prev){
+        if(rflags & (1ULL << 9))
+            enable_interrupts();
+        return;
+    }
 
     if (prev->state == TASK_RUNNING)
         prev->state = TASK_READY;
@@ -110,6 +119,9 @@ void task_yield(void) {
     current_task = next;
 
     task_switch(&prev->rsp, next->rsp);
+
+    if(rflags & (1ULL << 9))
+        enable_interrupts();
 }
 
 void task_block(void) {

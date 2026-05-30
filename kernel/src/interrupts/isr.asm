@@ -154,3 +154,5 @@ isr_stub_irq 42
 isr_stub_irq 43
 
 isr_stub_irq 44
+
+isr_stub_irq 64

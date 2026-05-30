@@ -4,6 +4,7 @@
 
 #include "interrupts/pic.h"
 #include "interrupts/apic.h"   /* also pulls in acpi/acpi.h → g_acpi, g_use_apic */
+#include "interrupts/lapic_timer.h"
 
 #include "drivers/keyboard.h"  /* also pulls in tasks/task.h → current_task, task_* */
 #include "drivers/mouse.h"
@@ -11,7 +12,7 @@
 
 #include "acpi/acpi.h"
 #include "tasks/task.h"
-#include "uacpi_glue.h"
+#include "acpi/uacpi_glue.h"
 
 void enable_interrupts() {
     asm volatile ("sti");
@@ -76,10 +77,6 @@ static void config_idt_vector(uint16_t n, uint64_t handler) {
     idt[n]._type       = 0;
 }
 
-void neuil(){
-    printf("Neuil \n");
-}
-
 void idt_init() {
 
     config_idt_vector(0, (uintptr_t) vector0);
@@ -102,9 +99,9 @@ void idt_init() {
     config_idt_vector(19, (uintptr_t) vector19);
     config_idt_vector(20, (uintptr_t) vector20);
     config_idt_vector(21, (uintptr_t) vector21);
-    // timer
+    // Legacy pit timer
     config_idt_vector(32, (uintptr_t) vector32);
-    // keyboard
+    // Keyboard
     config_idt_vector(33, (uintptr_t) vector33);
 
     config_idt_vector(34, (uintptr_t) vector34);
@@ -117,8 +114,11 @@ void idt_init() {
     config_idt_vector(41, (uintptr_t) vector41);
     config_idt_vector(42, (uintptr_t) vector42);
     config_idt_vector(43, (uintptr_t) vector43);
-    // mouse
+    // Mouse
     config_idt_vector(44, (uintptr_t) vector44);
+
+    //LAPIC Timer / Scheduler tick
+    config_idt_vector(64, (uintptr_t) vector64);
 
     printf("Loading IDT\n");
     load_idt();
@@ -137,17 +137,19 @@ void interrupt_handler(isr_ctx_t *regs) {
     }
     else if (int_no == 40) {
         rtc_handle_irq();
-        preempt = true;  /* preempt after EOI, not before */
     }
     else if (int_no == 44) {
         if (!g_use_apic) pic_mask_irq(PIC_PS2_MOUSE_INTERRUPT);
         mouse_handle_irq();
         if (!g_use_apic) pic_unmask_irq(PIC_PS2_MOUSE_INTERRUPT);
     }
-    else if (g_acpi.initialized &&
-             int_no == (uint8_t)(32u + g_acpi.sci_irq)) {
+    else if (g_acpi.initialized && int_no == (uint8_t)(32u + g_acpi.sci_irq)) {
         /* SCI: dispatch through uACPI when ready, else hand-rolled handler */
         uacpi_sci_dispatch();
+    }
+    else if(int_no == 64){
+        lapic_timer_handle_irq();
+        preempt = true;  /* preempt after EOI, not before */
     }
     else if (int_no >= 32) {
         /* Unknown hardware IRQ — just EOI and return */

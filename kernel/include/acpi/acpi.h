@@ -224,20 +224,24 @@ typedef struct {
     uint32_t iso_count;
     acpi_iso_t isos[ACPI_MAX_ISOS];
 
-    // From FADT — PM1 control (shutdown/sleep)
+    // From FADT - PM1 control (shutdown/sleep)
     uint16_t pm1a_cnt_port;
     uint16_t pm1b_cnt_port;   // 0 if absent
 
-    // From FADT — PM1 event block (SCI fixed events)
+    // From FADT - PM1 event block (SCI fixed events)
     uint32_t pm1a_evt_blk;
     uint32_t pm1b_evt_blk;   // 0 if absent
     uint8_t  pm1_evt_len;
 
-    // From FADT — reset
+    // From FADT - reset
     uint8_t  reset_space;     // 0=MMIO, 1=I/O port
     uint64_t reset_addr;
     uint8_t  reset_value;
     bool     reset_valid;
+
+    // From FADT - PM Timer
+    uint16_t pm_tmr_port;
+    bool     pm_tmr_32bit;
 
     uint16_t sci_irq;         // GSI of the ACPI SCI interrupt
 

@@ -14,7 +14,7 @@
 #include <uacpi/uacpi.h>
 #include <uacpi/event.h>
 #include <uacpi/sleep.h>
-#include "uacpi_glue.h"
+#include "acpi/uacpi_glue.h"
 
 #include "drivers/keyboard.h"
 #include "drivers/mouse.h"
@@ -52,7 +52,6 @@ static void idle_task(void) {
         task_yield();
     }
 }
-
 memory_infos_t parse_multiboot2_memory(multiboot_info_t *mbi) {
     multiboot_tag_t *tag;
     
@@ -115,8 +114,6 @@ void kernel_premain(unsigned long magic, multiboot_info_t* mbi_phys) {
 
     g_mbi_phys = mbi_phys;
 
-    printf("0x%X", mbi_phys);
-
     init_kernel_vesa(TO_VMA_PTR(multiboot_info_t *, mbi_phys));
 
     printf("---------- Memory Initialization ----------\n");
@@ -140,8 +137,6 @@ void kernel_premain(unsigned long magic, multiboot_info_t* mbi_phys) {
     // Setup Interrupt Descriptor table
     idt_init();
 
-    disable_interrupts();
-
     printf("------------ APIC Initialization -----------\n");
 
     // Try to switch from legacy 8259 PIC to LAPIC + I/O APIC.
@@ -149,11 +144,12 @@ void kernel_premain(unsigned long magic, multiboot_info_t* mbi_phys) {
     apic_init();
 
     if (!g_use_apic) {
+        disable_interrupts();
         // Legacy PIC path: unmask cascade and device IRQs
         pic_unmask_irq(PIC_8259_INTERRUPT);
+        enable_interrupts();
     }
 
-    enable_interrupts();
 
     printf("------------ PS2 Initialization ------------\n");
 

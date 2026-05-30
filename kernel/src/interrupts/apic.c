@@ -1,5 +1,10 @@
 #include "interrupts/apic.h"
+
+#include "interrupts/idt.h"
+#include "interrupts/lapic_timer.h"
+
 #include "memory/paging_pages.h"
+
 #include "stdio.h"
 
 bool g_use_apic = false;
@@ -11,11 +16,11 @@ extern void init_paging_apic(uint64_t lapic_phys,
 
 // ─── LAPIC register access ────────────────────────────────────────────────────
 
-static inline uint32_t lapic_read(uint32_t reg) {
+uint32_t lapic_read(uint32_t reg) {
     return *(volatile uint32_t *)(LAPIC_VIRT_BASE + reg);
 }
 
-static inline void lapic_write(uint32_t reg, uint32_t val) {
+void lapic_write(uint32_t reg, uint32_t val) {
     *(volatile uint32_t *)(LAPIC_VIRT_BASE + reg) = val;
 }
 
@@ -215,10 +220,16 @@ void apic_init(void) {
 
     lapic_init();
 
-    for (uint32_t i = 0; i < g_acpi.ioapic_count; i++)
-        ioapic_init_one(i);
+    disable_interrupts();
+    
+    lapic_timer_init();
 
     g_use_apic = true;
+
+    enable_interrupts();
+
+    for (uint32_t i = 0; i < g_acpi.ioapic_count; i++)
+        ioapic_init_one(i);
 
     // Unmask the IRQs actually used by existing drivers
     ioapic_unmask_irq(1);   // keyboard
@@ -229,6 +240,6 @@ void apic_init(void) {
     if (g_acpi.sci_irq < 16)
         ioapic_unmask_irq((uint8_t)g_acpi.sci_irq);
 
-    printf("[APIC] Active — LAPIC + %u IOAPIC(s) configured\n",
+    printf("[APIC] Active - LAPIC + %u IOAPIC(s) configured\n",
            g_acpi.ioapic_count);
 }
