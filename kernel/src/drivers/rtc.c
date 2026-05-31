@@ -120,5 +120,5 @@ void rtc_init(void) {
     // (already unmasked in kernel_premain), so we only need to unmask IRQ 8.
     pic_unmask_irq(PIC_CMOS_REALTIME_CLOCK_INTERRUPT);
 
-    printf("RTC initialised at %d Hz\n", 32768 >> (RTC_RATE - 1));
+    KLOG_INFO("RTC","Initialised at %d Hz", 32768 >> (RTC_RATE - 1));
 }

@@ -68,7 +68,7 @@ void *malloc(uint32_t size) {
         // expand heap here with paging/sbrk
         // instead of infinite recursion
 
-        printf("HEAP: Out of memory allocating %u bytes\n", size);
+        KLOG_ERROR("HEAP", "Out of memory allocating %u bytes\n", size);
         return NULL;
     }
 
@@ -151,20 +151,20 @@ void debug_heap_dump()
         else           used      += mb->size;
     }
 
-    printf("--- heap dump (%u blocks) ---\n", blocks);
+    printf("--- Heap dump (%u blocks) ---\n", blocks);
     printf("  total  : %u bytes\n", total);
     printf("  used   : %u bytes\n", used);
     printf("  free   : %u bytes\n", free_bytes);
 
     uint32_t i = 0;
     HEAP_WALKER(mb) {
-        printf("  [%u] %s  size=%u  addr=0x%X\n",
+        KLOG_INFO(
+            "HEAP","[%u] %s  size=%u  addr=0x%X\n",
                i++,
                mb->free ? "FREE" : "USED",
                mb->size,
                (uint32_t)(uint64_t)mb);
     }
-    printf("----------------------------\n");
 }
 
 void init_heap()
@@ -178,8 +178,8 @@ void init_heap()
     root_mblock->size =
         heap_end - heap_start - sizeof(mblock_t);
 
-    printf(
-        "HEAP: init start=0x%X end=0x%X size=%u\n",
+    KLOG_INFO(
+        "HEAP","Init start=0x%X end=0x%X size=%u",
         heap_start,
         heap_end,
         root_mblock->size

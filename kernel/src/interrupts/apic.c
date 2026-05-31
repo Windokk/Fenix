@@ -147,7 +147,7 @@ static void lapic_init(void) {
     lapic_write(LAPIC_ESR, 0);
     lapic_write(LAPIC_EOI, 0);
 
-    printf("[APIC] LAPIC enabled  ID=0x%X  version=0x%X\n",
+    KLOG_INFO("APIC","LAPIC enabled  ID=0x%X  version=0x%X",
            (lapic_read(LAPIC_ID) >> 24) & 0xFF,
            lapic_read(LAPIC_VER) & 0xFF);
 }
@@ -161,7 +161,7 @@ static void ioapic_init_one(uint32_t idx) {
     uint32_t ver       = ioapic_read(base, IOAPIC_REG_VER);
     uint8_t  max_entry = (uint8_t)((ver >> 16) & 0xFF) + 1;
 
-    printf("[APIC] IOAPIC #%u  %u entries  GSI base %u\n",
+    KLOG_INFO("APIC","IOAPIC #%u  %u entries  GSI base %u",
            idx, max_entry, gsi_base);
 
     // Mask every entry first
@@ -195,11 +195,11 @@ static void ioapic_init_one(uint32_t idx) {
 
 void apic_init(void) {
     if (!g_acpi.initialized) {
-        printf("[APIC] Skipped: ACPI not initialized\n");
+        KLOG_ERROR("APIC","Skipped: ACPI not initialized");
         return;
     }
     if (g_acpi.ioapic_count == 0) {
-        printf("[APIC] Skipped: no I/O APIC found in MADT\n");
+        KLOG_ERROR("APIC","Skipped: no I/O APIC found in MADT");
         return;
     }
 
@@ -240,6 +240,6 @@ void apic_init(void) {
     if (g_acpi.sci_irq < 16)
         ioapic_unmask_irq((uint8_t)g_acpi.sci_irq);
 
-    printf("[APIC] Active - LAPIC + %u IOAPIC(s) configured\n",
+    KLOG_INFO("APIC","Active - LAPIC + %u IOAPIC(s) configured\n",
            g_acpi.ioapic_count);
 }

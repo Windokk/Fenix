@@ -85,12 +85,12 @@ void ps2_enable_ports(bool enable_port1, bool enable_port2) {
     if (enable_port1) {
         outb(PORT_PS2_CMD, PS2_CMD_ENABLE_PORT1);
         ps2_wait_input_ready();
-        printf("Enabled PS2 Port 1\n");
+        KLOG_INFO("PS/2","Enabled PS2 Port 1");
     }
     if (enable_port2) {
         outb(PORT_PS2_CMD, PS2_CMD_ENABLE_PORT2);
         ps2_wait_input_ready();
-        printf("Enabled PS2 Port 2\n");
+        KLOG_INFO("PS/2","Enabled PS2 Port 2");
     }
 }
 
@@ -105,18 +105,18 @@ void ps2_init(void) {
 
     // Perform self-test
     if (!ps2_self_test()) {
-        printf("PS/2 controller self-test failed\n");
+        KLOG_ERROR("PS/2","Controller self-test failed");
         return;
     }
 
     // Check for second channel
     bool dual_channel = ps2_has_second_channel();
-    printf("PS/2 controller dual-channel: %s\n", dual_channel ? "yes" : "no");
+    KLOG_INFO("PS/2","Controller dual-channel: %s", dual_channel ? "yes" : "no");
 
     // Test ports
     bool port1_working = ps2_test_port1();
     bool port2_working = dual_channel && ps2_test_port2();
-    printf("Port 1: %s, Port 2: %s\n",
+    KLOG_INFO("PS/2","Port 1: %s, Port 2: %s",
            port1_working ? "working" : "not working",
            port2_working ? "working" : "not working");
 
@@ -130,16 +130,15 @@ void ps2_init(void) {
     if (port2_working) config |= 0x02;  // Enable IRQ12
     ps2_write_config(config);
 
-    printf("PS/2 initialization complete.\n");
+    KLOG_INFO("PS/2","Initialization complete.");
 }
-
 
 /**
  * Writes a command byte to the PS/2 controller command port.
  */
 void ps2_write_command(uint8_t command) {
     if (!ps2_wait_input_ready()) {
-        printf("Timeout waiting for PS/2 input buffer to be ready (command).\n");
+        KLOG_ERROR("PS/2","Timeout waiting for PS/2 input buffer to be ready (command).");
         return;
     }
     outb(PORT_PS2_CMD, command);
@@ -150,7 +149,7 @@ void ps2_write_command(uint8_t command) {
  */
 void ps2_write_data(uint8_t data) {
     if (!ps2_wait_input_ready()) {
-        printf("Timeout waiting for PS/2 input buffer to be ready (data).\n");
+        KLOG_ERROR("PS/2","Timeout waiting for PS/2 input buffer to be ready (data).");
         return;
     }
     outb(PORT_PS2_DATA, data);
@@ -161,7 +160,7 @@ void ps2_write_data(uint8_t data) {
  */
 uint8_t ps2_read_data(void) {
     if (!ps2_wait_output_ready()) {
-        printf("Timeout waiting for PS/2 output buffer to be ready.\n");
+        KLOG_ERROR("PS/2","Timeout waiting for PS/2 output buffer to be ready.");
         return 0xFF;  // Return error code
     }
     return inb(PORT_PS2_DATA);

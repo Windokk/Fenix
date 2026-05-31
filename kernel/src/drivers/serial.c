@@ -86,7 +86,3 @@ void hex_to_ascii64(uint64_t value, char* str) {
 
     *p = '\0';
 }
-
-void debug_print(const char *msg) {
-    serial_print(msg);
-}

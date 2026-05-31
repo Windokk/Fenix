@@ -49,5 +49,3 @@ void serial_print(const char *str);
 void int_to_ascii(int value, char* str, int base);
 
 void hex_to_ascii64(uint64_t value, char* str);
-
-void debug_print(const char *msg);

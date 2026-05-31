@@ -171,12 +171,20 @@ void vprintf(const char* format, va_list args) {
 
     while (*format != '\0') {
         if (*format == '%') {
+            // Process length modifications
+            uint8_t l_count = 0;
             format++;
+            while(*format == 'l'){
+                l_count++;
+                format++;
+            }
+            // Process actual characters/format identifiers
             if (*format == '%') {
                 write_serial('%');
                 fb_putchar('%');
                 format++;
-            } else if (*format == 'c') {
+            }
+            else if (*format == 'c') {
                 char cv = (char)va_arg(args, int);
                 write_serial(cv);
                 fb_putchar(cv);
@@ -187,19 +195,39 @@ void vprintf(const char* format, va_list args) {
                 fb_puts(sv);
                 format++;
             } else if (*format == 'd' || *format == 'i') {
-                int value = va_arg(args, int);
-                if (value < 0) {
-                    write_serial('-');
-                    fb_putchar('-');
-                    value = -value;
+                /// @todo : support difference between long and long long
+                if(l_count > 0)
+                {
+                    int64_t value = va_arg(args, int64_t);
+                    if (value < 0) {
+                        write_serial('-');
+                        fb_putchar('-');
+                        value = -value;
+                    }
+                    itoa(value, buffer, 10);
                 }
-                itoa(value, buffer, 10);
+                else{
+                    int value = va_arg(args, int);
+                    if (value < 0) {
+                        write_serial('-');
+                        fb_putchar('-');
+                        value = -value;
+                    }
+                    itoa(value, buffer, 10);
+                }
                 serial_print(buffer);
                 fb_puts(buffer);
                 format++;
             } else if (*format == 'u') {
-                unsigned int value = va_arg(args, unsigned int);
-                itoa(value, buffer, 10);
+                /// @todo : support difference between long and long long
+                if(l_count > 0){
+                    uint64_t value = va_arg(args, uint64_t);
+                    itoa(value, buffer, 10);
+                }
+                else{
+                    unsigned int value = va_arg(args, unsigned int);
+                    itoa(value, buffer, 10);
+                }
                 serial_print(buffer);
                 fb_puts(buffer);
                 format++;

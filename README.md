@@ -7,7 +7,7 @@
 <img src="github/shield.svg" alt="shield"/>
 <br>
 
-### A Unix-like minimalistic operating system (x84_64)
+### A Unix-like operating system (x84_64)
 <br>
 </div>
 
@@ -88,7 +88,7 @@
 - [ ] `cpuid`-based feature detection (XSAVE, invariant TSC, etc.)
 
 ### Phase 8 - PCI / PCIe Enumeration
-- [ ] ECAM-based PCIe config space walker (uses MCFG already parsed)
+- [ ] ECAM-based PCIe config space walker
 - [ ] PCI device/vendor database (compact table in kernel)
 - [ ] Generic PCI driver model (probe / remove callbacks)
 - [ ] MSI / MSI-X allocation (vector management, LAPIC targeting)

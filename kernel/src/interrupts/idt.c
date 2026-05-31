@@ -120,7 +120,7 @@ void idt_init() {
     //LAPIC Timer / Scheduler tick
     config_idt_vector(64, (uintptr_t) vector64);
 
-    printf("Loading IDT\n");
+    KLOG_INFO("IDT","Loading IDT");
     load_idt();
 }
 
@@ -158,7 +158,7 @@ void interrupt_handler(isr_ctx_t *regs) {
     }
     else {
         disable_interrupts();
-        printf("Error: %s, Error Code: 0x%x", exception_strs[int_no], regs->error_code);
+        KLOG_ERROR("IDT","Error: %s, Error Code: 0x%x", exception_strs[int_no], regs->error_code);
         for (;;) {
             asm volatile ("hlt");
         }

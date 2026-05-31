@@ -3,7 +3,17 @@
 #include "common.h"
 
 char* reverse(char *buffer, int i, int j);
-char* itoa(int value, char* buffer, int base);
+#define itoa(v, b, base) \
+    _Generic((v), \
+        int16_t:  itoa64,\
+        int32_t:  itoa64, \
+        int64_t:  itoa64, \
+        uint16_t: utoa64,\
+        uint32_t: utoa64, \
+        uint64_t: utoa64 \
+    )(v, b, base)
+char* utoa64(uint64_t value, char* buffer, int base);
+char* itoa64(int64_t value, char* buffer, int base);
 
 void *memset(void* dest, register int value, register uint64_t len);
 void *memcpy(void *dest, void *src, register uint64_t len);

@@ -25,7 +25,7 @@ void pic_init(bool debugging) {
     pic_disable_all_irq();
 
     if(pic_debugging){
-        printf("PIC initialised\n");
+        KLOG_INFO("PIC","Initialized");
     }
 
     pic_debugging = debugging;
@@ -52,16 +52,16 @@ void pic_unmask_irq(uint8_t isa_irq) {
     uint8_t value = inb(pic_selector);
     
     if(pic_debugging){
-        printf("PIC Addr: 0x%x mask state: %u\n", pic_selector, value);
+        KLOG_INFO("PIC","Addr: 0x%x mask state: %u", pic_selector, value);
     }
     if (((value >> isa_irq) & 1ULL)) {
         value = value & ~(1UL << isa_irq); // Corrected assignment
         if(pic_debugging){
-            printf("PIC Addr: 0x%x new mask State: %u\n", pic_selector, value);
+            KLOG_INFO("PIC","Addr: 0x%x new mask State: %u", pic_selector, value);
         }
         outb(pic_selector, value);
         if(pic_debugging){
-            printf("IRQ %u unmasked\n", isa_irq);
+            KLOG_INFO("IRQ","%u unmasked", isa_irq);
         }
     }
 }
@@ -79,18 +79,18 @@ void pic_mask_irq(uint8_t isa_irq) {
     uint8_t value = inb(pic_selector);
     
     if(pic_debugging){
-        printf("PIC Addr: 0x%X mask state: %u\n", pic_selector, value);
+        KLOG_INFO("PIC","Addr: 0x%X mask state: %u", pic_selector, value);
     }
 
     // Check if the bit for the specified IRQ is not already set
     if (!((value >> isa_irq) & 1ULL)) {
         value |= (1ULL << isa_irq); // Set the bit to mask the IRQ
         if(pic_debugging){
-            printf("PIC Addr: 0x%X new mask State: %u\n", pic_selector, value);
+            KLOG_INFO("PIC","Addr: 0x%X new mask State: %u", pic_selector, value);
         }
         outb(pic_selector, value);
         if(pic_debugging){
-            printf("IRQ %u masked\n", isa_irq); 
+            KLOG_INFO("IQR","%u masked", isa_irq); 
         }
     }
 }

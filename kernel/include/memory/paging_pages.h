@@ -105,33 +105,22 @@ typedef union pte_struct {
     } fields;
 } __attribute__((packed)) pte_t;
 
-static pml4e_t pml4e[512]  __attribute__((aligned(4096)));
-static pdpe_t  pdpe[512]   __attribute__((aligned(4096)));
-static pde_t   pde[512]    __attribute__((aligned(4096)));
-static pte_t   pte[2048]   __attribute__((aligned(4096))); /* 4 PDEs × 512 = 8 MB */
+extern pml4e_t pml4e[512];
+extern pdpe_t  pdpe[512];
+extern pde_t   pde[512];
+extern pte_t   pte[2048]; /* 4 PDEs × 512 = 8 MB */
 
-static pdpe_t  pdpe_user[512] __attribute__((aligned(4096)));
-static pde_t   pde_user[512] __attribute__((aligned(4096)));
-static pte_t   pte_user[512] __attribute__((aligned(4096)));
+extern pdpe_t  pdpe_user[512];
+extern pde_t   pde_user[512];
+extern pte_t   pte_user[512];
 
-static pdpe_t  pdpe_krnluser[512] __attribute__((aligned(4096)));
-static pde_t  pde_krnluser[512] __attribute__((aligned(4096)));
-static pte_t   pte_krnluser[512] __attribute__((aligned(4096)));
+extern pdpe_t  pdpe_krnluser[512];
+extern pde_t  pde_krnluser[512];
+extern pte_t   pte_krnluser[512];
 
-static pdpe_t  pdpe_video[512] __attribute__((aligned(4096)));
-static pde_t   pde_video[512] __attribute__((aligned(4096)));
-static pte_t   pte_video[1024] __attribute__((aligned(4096)));
-
-// P4[0x1D0] → 0xFFFFE80000000000  (16 MB window for ACPI system tables)
-// GRUB places ACPI tables near the top of RAM, usually far above the 8 MB
-// kernel mapping. We map a 16 MB aligned region covering the RSDT/XSDT so
-// that acpi.c can access every SDT through a simple pointer.
-#define ACPI_TABLE_BASE    0xFFFFE80000000000ULL
-#define ACPI_TABLE_WINDOW  (16ULL << 20)   // 16 MB = 4096 pages = 8 PDEs
-
-static pdpe_t  pdpe_acpi_tables[512]  __attribute__((aligned(4096)));
-static pde_t   pde_acpi_tables[512]   __attribute__((aligned(4096)));
-static pte_t   pte_acpi_tables[4096]  __attribute__((aligned(4096)));
+extern pdpe_t  pdpe_video[512];
+extern pde_t   pde_video[512];
+extern pte_t   pte_video[1024];
 
 // P4[0x1C8] → 0xFFFFE40000000000  (dynamic MMIO mapping pool)
 // Used by uacpi_kernel_map() for arbitrary physical addresses not covered by
@@ -139,28 +128,18 @@ static pte_t   pte_acpi_tables[4096]  __attribute__((aligned(4096)));
 #define MMIO_POOL_BASE    0xFFFFE40000000000ULL
 #define MMIO_POOL_PAGES   512
 
-static pdpe_t  pdpe_mmio[512]        __attribute__((aligned(4096)));
-static pde_t   pde_mmio[512]         __attribute__((aligned(4096)));
-static pte_t   pte_mmio[MMIO_POOL_PAGES] __attribute__((aligned(4096)));
+extern pdpe_t  pdpe_mmio[512];
+extern pde_t   pde_mmio[512];
+extern pte_t   pte_mmio[MMIO_POOL_PAGES];
 
 // P4[0x1E0] → 0xFFFFF00000000000
 // page 0: LAPIC  page 1+: IOAPICs (1 page each, up to 4)
-static pdpe_t  pdpe_apic[512] __attribute__((aligned(4096)));
-static pde_t   pde_apic[512]  __attribute__((aligned(4096)));
-static pte_t   pte_apic[512]  __attribute__((aligned(4096)));
+extern pdpe_t  pdpe_apic[512];
+extern pde_t   pde_apic[512];
+extern pte_t   pte_apic[512];
 
-static void init_paging_kernel();
-
-static void init_paging_user();
-
-static void init_paging_video();
 
 void init_paging();
-
-// Map a 16 MB physical region (phys_base must be 16 MB-aligned) into the
-// ACPI_TABLE_BASE virtual window so acpi.c can read ACPI system tables that
-// live above the 8 MB kernel mapping.
-void init_paging_acpi_tables(uint64_t phys_base);
 
 // Map LAPIC and I/O APIC physical MMIO pages (cache-disabled) into the
 // APIC_MMIO_BASE virtual region. Call after init_paging().

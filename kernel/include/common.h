@@ -80,3 +80,12 @@ typedef unsigned long size_t;
     ); \
     result; \
 })
+
+extern void HALT_AND_CATCH_FIRE(const char *fmt, ...);
+
+#define KLOG_INFO(tag, fmt, ...)  printf("[" tag " INFO] " fmt "\n", ##__VA_ARGS__)
+#define KLOG_WARN(tag, fmt, ...)  printf("[" tag " WARN] " fmt "\n", ##__VA_ARGS__)
+#define KLOG_ERROR(tag, fmt, ...) printf("[" tag " ERROR] " fmt "\n", ##__VA_ARGS__)
+#define KLOG_FATAL(tag, fmt, ...) \
+    printf("[" tag " FATAL] " fmt "\n", ##__VA_ARGS__); \
+    HALT_AND_CATCH_FIRE("[" tag " FATAL] " fmt, ##__VA_ARGS__)

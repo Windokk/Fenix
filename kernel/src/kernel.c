@@ -1,7 +1,9 @@
 #include "multiboot2.h"
 
 #include "kernel.h"
+
 #include "memory/paging_pages.h"
+
 #include "tasks/task.h"
 #include "tasks/shell.h"
 
@@ -11,17 +13,13 @@
 
 #include "acpi/acpi.h"
 
-#include <uacpi/uacpi.h>
-#include <uacpi/event.h>
-#include <uacpi/sleep.h>
-#include "acpi/uacpi_glue.h"
-
 #include "drivers/keyboard.h"
 #include "drivers/mouse.h"
 #include "drivers/ps2.h"
 #include "drivers/rtc.h"
 #include "drivers/serial.h"
 #include "drivers/vesa.h"
+#include "drivers/hpet.h"
 
 #include "graphics/gfx.h"
 
@@ -37,13 +35,6 @@ void HALT_AND_CATCH_FIRE(const char *fmt, ...) {
     va_end(args);
     x86_hlt(); 
     while(1) {}
-}
-
-static uacpi_interrupt_ret power_button_handler(uacpi_handle ctx) {
-    (void)ctx;
-    printf("[ACPI] Power button pressed — shutting down\n");
-    acpi_enter_sleep(5);
-    return UACPI_INTERRUPT_HANDLED;
 }
 
 static void idle_task(void) {
@@ -106,38 +97,51 @@ void kernel_premain(unsigned long magic, multiboot_info_t* mbi_phys) {
 
     init_serial();
 
-    printf("KERNEL_PREMAIN\n");
+    KLOG_INFO("KERNEL", "Starting premain...");
 
     if(magic != MULTIBOOT2_BOOTLOADER_MAGIC){
-        HALT_AND_CATCH_FIRE("--------- MAGIC NUMBER NOT RECOGNIZED ! ---------\nMAGIC NUMBER RECIEVED : 0x%X\n", (magic));
+        KLOG_FATAL("KERNEL","MAGIC NUMBER NOT RECOGNIZED !\nMAGIC NUMBER RECIEVED : 0x%X\n", (magic));
     }
 
     g_mbi_phys = mbi_phys;
 
     init_kernel_vesa(TO_VMA_PTR(multiboot_info_t *, mbi_phys));
 
-    printf("---------- Memory Initialization ----------\n");
+    KLOG_INFO("KERNEL", "Memory Initialization");
 
     memory_infos_t mem = parse_multiboot2_memory(mbi_phys);
 
     init_frames(mem.usable_size);
     init_paging();
-    printf("Paging done\n");
+    
+    KLOG_INFO("KERNEL", "Done.");
 
-    printf("------------ ACPI Initialization -----------\n");
+    KLOG_INFO("KERNEL", "ACPI Initialization");
 
     acpi_init(g_mbi_phys);
 
-    printf("------------ PIC Initialization ------------\n");
+    KLOG_INFO("KERNEL", "Done.");
+    
+    KLOG_INFO("KERNEL", "HPET Initialization");
+
+    hpet_init();
+
+    KLOG_INFO("KERNEL", "Done.");
+    
+    KLOG_INFO("KERNEL", "PIC Initialization");
 
     pic_init(false);
 
-    printf("------------ IDT Initialization ------------\n");
+    KLOG_INFO("KERNEL", "Done.");
+    
+    KLOG_INFO("KERNEL", "IDT Initialization");
 
     // Setup Interrupt Descriptor table
     idt_init();
 
-    printf("------------ APIC Initialization -----------\n");
+    KLOG_INFO("KERNEL", "Done.");
+    
+    KLOG_INFO("KERNEL", "APIC Initialization");
 
     // Try to switch from legacy 8259 PIC to LAPIC + I/O APIC.
     // If ACPI didn't find a MADT, apic_init() is a no-op and we stay on PIC.
@@ -150,69 +154,42 @@ void kernel_premain(unsigned long magic, multiboot_info_t* mbi_phys) {
         enable_interrupts();
     }
 
+    KLOG_INFO("KERNEL", "Done.");
 
-    printf("------------ PS2 Initialization ------------\n");
+    KLOG_INFO("KERNEL", "PS/2 Initialization");
 
     ps2_init();
 
-    printf("--------- Keyboard Initialization ----------\n");
+    KLOG_INFO("KERNEL", "Done.");
+
+    KLOG_INFO("KERNEL", "KEYBOARD Initialization");
 
     keyboard_enable();
 
-    printf("---------- Mouse Initialization ------------\n");
+    KLOG_INFO("KERNEL", "Done.");
+
+    KLOG_INFO("KERNEL", "Mouse Initialization");
 
     mouse_enable();
 
-    printf("----------- RTC Initialization -------------\n");
+    KLOG_INFO("KERNEL", "Done.");
+
+    KLOG_INFO("KERNEL", "RTC Initialization");
 
     rtc_init();
 
+    KLOG_INFO("KERNEL", "Done.");
+
     enable_interrupts();
-
-    printf("---------- uACPI Initialization ----------\n");
-    serial_print("[uACPI] calling uacpi_initialize\n");
-
-    /* UACPI_FLAG_NO_ACPI_MODE: acpi_init() already enabled ACPI mode via SMI_CMD */
-    uacpi_status ust = uacpi_initialize(UACPI_FLAG_NO_ACPI_MODE);
-    serial_print("[uACPI] initialize done\n");
-    if (ust == UACPI_STATUS_OK) {
-        serial_print("[uACPI] calling namespace_load\n");
-        ust = uacpi_namespace_load();
-        serial_print("[uACPI] namespace_load done\n");
-        if (ust == UACPI_STATUS_OK) {
-            serial_print("[uACPI] calling namespace_initialize\n");
-            ust = uacpi_namespace_initialize();
-            serial_print("[uACPI] namespace_initialize done\n");
-            if (ust == UACPI_STATUS_OK) {
-                g_uacpi_ready = true;
-                printf("[uACPI] Full namespace initialized\n");
-                uacpi_install_fixed_event_handler(
-                    UACPI_FIXED_EVENT_POWER_BUTTON,
-                    power_button_handler, UACPI_NULL);
-            } else {
-                printf("[uACPI] namespace_initialize failed: 0x%X\n", (uint32_t)ust);
-            }
-        } else {
-            printf("[uACPI] namespace_load failed: 0x%X\n", (uint32_t)ust);
-        }
-    } else {
-        printf("[uACPI] initialize failed: 0x%X\n", (uint32_t)ust);
-    }
 }
 
 void kernel_main()
 {
-    rtc_time_t time = {0,0,0,0,0,0};
-    rtc_read_time(&time);
-    printf("Current time : %u/%u/%u %u:%u:%u\n",
-           time.month, time.day, time.year,
-           time.hours, time.minutes, time.seconds);
-
     task_init();
     task_create(shell_task, "shell");
     task_create(idle_task,  "idle");
 
-    printf("---------- Task System Ready ----------\n");
+    KLOG_INFO("KERNEL", "Task system ready");
 
     scheduler_start();
     /* never reached */

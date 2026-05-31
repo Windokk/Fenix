@@ -13,47 +13,44 @@ char* reverse(char *buffer, int i, int j) {
 	return buffer;
 }
 
-// Iterative function to implement itoa() function in C
-char* itoa(int value, char* buffer, int base) {
-	// invalid input
-	if (base < 2 || base > 32)
-		return buffer;
+char* utoa64(uint64_t value, char* buffer, int base)
+{
+    int i = 0;
 
-	// consider absolute value of number
-	int n = value > 0 ? value : -value;
+    do {
+        uint64_t r = value % base;
 
-	int i = 0;
-	while (n)
-	{
-		int r = n % base;
+        if (r < 10)
+            buffer[i++] = '0' + r;
+        else
+            buffer[i++] = 'A' + (r - 10);
 
-		if (r >= 10) 
-			buffer[i++] = 65 + (r - 10);
-		else
-			buffer[i++] = 48 + r;
+        value /= base;
+    } while (value);
 
-		n = n / base;
-	}
+    buffer[i] = '\0';
 
-	// if number is 0
-	if (i == 0)
-		buffer[i++] = '0';
-
-	// If base is 10 and value is negative, the resulting string 
-	// is preceded with a minus sign (-)
-	// With any other base, value is always considered unsigned
-	if (value < 0 && base == 10)
-		buffer[i++] = '-';
-
-	buffer[i] = '\0'; // null terminate string
-
-	// reverse the string and return it
-	return reverse(buffer, 0, i - 1);
+    return reverse(buffer, 0, i - 1);
 }
 
+char* itoa64(int64_t value, char* buffer, int base)
+{
+    if (base == 10 && value < 0)
+    {
+        *buffer++ = '-';
 
-void *memset(void* dest, register int value, register uint64_t len) {
-	uint8_t  byte  = (uint8_t)value;
+        uint64_t mag = (uint64_t)(-(value + 1)) + 1;
+        utoa64(mag, buffer, base);
+
+        return buffer - 1;
+    }
+
+    return utoa64((uint64_t)value, buffer, base);
+}
+
+void *memset(void *dest, register int value, register uint64_t len)
+{
+    uint8_t  byte  = (uint8_t)value;
 	uint64_t qword = (uint64_t)byte * 0x0101010101010101ULL;
 	uint8_t *p = (uint8_t *)dest;
 

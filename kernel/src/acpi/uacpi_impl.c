@@ -9,11 +9,15 @@
 #include <uacpi/types.h>
 
 #include "acpi/acpi.h"
-#include "memory/mmio_pool.h"
+
 #include "memory/heap.h"
+#include "memory/paging_pages.h"
+
 #include "drivers/serial.h"
 #include "drivers/rtc.h"
+
 #include "tasks/task.h"
+
 #include "stdio.h"
 #include "string.h"
 
@@ -37,14 +41,6 @@ void *uacpi_kernel_map(uacpi_phys_addr addr, uacpi_size len) {
     if (phys_aligned < (8ULL << 20))
         return (void *)(TO_VMA_U64(phys_aligned) + offset);
 
-    /* ACPI table window: [g_acpi_table_phys_base, +16 MB) */
-    if (g_acpi_table_phys_base &&
-        phys_aligned >= g_acpi_table_phys_base &&
-        phys_aligned <  g_acpi_table_phys_base + ACPI_TABLE_WINDOW)
-        return (void *)(ACPI_TABLE_BASE
-                        + (phys_aligned - g_acpi_table_phys_base)
-                        + offset);
-
     /* Address outside known windows — try to expand the ACPI table window
      * on-the-fly by re-mapping to cover this region, then use the MMIO pool
      * as a fallback. */
@@ -59,8 +55,6 @@ void uacpi_kernel_unmap(void *addr, uacpi_size len) {
 
     /* Low-memory or ACPI table window: statically mapped, nothing to do */
     if (v >= KERNEL_START_MEMORY && v < KERNEL_START_MEMORY + (8ULL << 20))
-        return;
-    if (v >= ACPI_TABLE_BASE && v < ACPI_TABLE_BASE + ACPI_TABLE_WINDOW)
         return;
 
     /* MMIO pool: free the pages */
@@ -243,10 +237,10 @@ void uacpi_kernel_unlock_spinlock(uacpi_handle handle, uacpi_cpu_flags flags) {
 uacpi_status uacpi_kernel_handle_firmware_request(uacpi_firmware_request *req) {
     switch (req->type) {
     case UACPI_FIRMWARE_REQUEST_TYPE_BREAKPOINT:
-        printf("[uACPI] AML Breakpoint\n");
+        KLOG_WARN("uACPI", "AML Breakpoint\n");
         return UACPI_STATUS_OK;
     case UACPI_FIRMWARE_REQUEST_TYPE_FATAL:
-        printf("[uACPI] AML Fatal: type=0x%X code=0x%X\n",
+        KLOG_FATAL("uACPI", "AML Fatal: type=0x%X code=0x%X\n",
                req->fatal.type, req->fatal.code);
         return UACPI_STATUS_OK;
     default:

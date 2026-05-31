@@ -91,12 +91,12 @@ static void cursor_draw(int32_t x, int32_t y) {
 
 void mouse_write(uint8_t command) {
     if (!ps2_wait_input_ready()) {
-        printf("PS/2 controller not ready for input\n");
+        KLOG_ERROR("PS/2", "Controller not ready for input");
         return;
     }
     outb(PORT_PS2_CMD, 0xD4);
     if (!ps2_wait_input_ready()) {
-        printf("PS/2 controller not ready to forward to mouse\n");
+        KLOG_ERROR("PS/2", "Controller not ready to forward to mouse");
         return;
     }
     outb(PORT_PS2_RW_DATA, command);
@@ -104,7 +104,7 @@ void mouse_write(uint8_t command) {
 
 uint8_t mouse_read(void) {
     if (!ps2_wait_output_ready()) {
-        printf("PS/2 controller output not ready\n");
+        KLOG_ERROR("PS/2", "Controller output not ready");
         return 0xFF;
     }
     return inb(PORT_PS2_RW_DATA);
@@ -121,7 +121,7 @@ void mouse_enable(void) {
     ps2_write_data(MOUSE_CMD_RESET);
     uint8_t ack = ps2_read_data();
     if (ack != 0xFA) {
-        printf("Mouse reset failed (ack=0x%X)\n", ack);
+        KLOG_ERROR("MOUSE","Mouse reset failed (ack=0x%X)", ack);
         enable_interrupts();
         return;
     }
@@ -133,12 +133,12 @@ void mouse_enable(void) {
     ps2_write_data(MOUSE_CMD_ENABLE_REPORTING);
     ack = ps2_read_data();
     if (ack != 0xFA) {
-        printf("Mouse enable reporting failed (ack=0x%X)\n", ack);
+        KLOG_ERROR("MOUSE","Mouse enable reporting failed (ack=0x%X)", ack);
         enable_interrupts();
         return;
     }
 
-    printf("PS/2 mouse enabled\n");
+    KLOG_INFO("MOUSE","Mouse enabled");
 
     pic_unmask_irq(PIC_PS2_MOUSE_INTERRUPT);
     enable_interrupts();

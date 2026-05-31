@@ -86,7 +86,7 @@ void keyboard_enable(void) {
     disable_interrupts();
     pic_unmask_irq(PIC_KEYBOARD_INTERRUPT);
     enable_interrupts();
-    printf("PS/2 Keyboard enabled\n");
+    KLOG_INFO("PS/2","Keyboard enabled");
 }
 
 void keyboard_handle_irq(void) {

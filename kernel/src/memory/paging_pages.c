@@ -1,5 +1,30 @@
 #include "memory/paging_pages.h"
 
+pml4e_t pml4e[512] __attribute__((aligned(4096)));
+pdpe_t  pdpe[512] __attribute__((aligned(4096)));
+pde_t   pde[512] __attribute__((aligned(4096)));
+pte_t   pte[2048] __attribute__((aligned(4096))); /* 4 PDEs × 512 = 8 MB */
+
+pdpe_t  pdpe_user[512] __attribute__((aligned(4096)));
+pde_t   pde_user[512] __attribute__((aligned(4096)));
+pte_t   pte_user[512] __attribute__((aligned(4096)));
+
+pdpe_t  pdpe_krnluser[512] __attribute__((aligned(4096)));
+pde_t  pde_krnluser[512] __attribute__((aligned(4096)));
+pte_t   pte_krnluser[512] __attribute__((aligned(4096)));
+
+pdpe_t  pdpe_video[512] __attribute__((aligned(4096)));
+pde_t   pde_video[512] __attribute__((aligned(4096)));
+pte_t   pte_video[1024] __attribute__((aligned(4096)));
+
+pdpe_t  pdpe_mmio[512] __attribute__((aligned(4096)));
+pde_t   pde_mmio[512] __attribute__((aligned(4096)));
+pte_t   pte_mmio[MMIO_POOL_PAGES] __attribute__((aligned(4096)));
+
+pdpe_t  pdpe_apic[512] __attribute__((aligned(4096)));
+pde_t   pde_apic[512] __attribute__((aligned(4096)));
+pte_t   pte_apic[512] __attribute__((aligned(4096)));
+
 static inline uint64_t x86_get_cr3(void) {
     uint64_t rv;
 
@@ -97,24 +122,6 @@ void init_paging(){
     init_paging_video();
     x86_set_cr3(TO_PHYS_U64(pml4e));
     init_heap();
-}
-
-void init_paging_acpi_tables(uint64_t phys_base) {
-    memset(pdpe_acpi_tables, 0, sizeof(pdpe_t)  * 512);
-    memset(pde_acpi_tables,  0, sizeof(pde_t)   * 512);
-    memset(pte_acpi_tables,  0, sizeof(pte_t)   * 4096);
-
-    pml4e[0x1D0].all          = TO_PHYS_U64(pdpe_acpi_tables) | 3;
-    pdpe_acpi_tables[0].all   = TO_PHYS_U64(pde_acpi_tables)  | 3;
-
-    // 8 PDEs × 512 pages = 4096 pages = 16 MB
-    for (uint32_t d = 0; d < 8; d++)
-        pde_acpi_tables[d].all = TO_PHYS_U64(&pte_acpi_tables[d * 512]) | 3;
-
-    for (uint32_t i = 0; i < 4096; i++)
-        pte_acpi_tables[i].all = (phys_base + (uint64_t)i * PAGE_SIZE) | PAGE_PRESENT_CPL0;
-
-    x86_tlb_flush_all();
 }
 
 static uint8_t mmio_bitmap[MMIO_POOL_PAGES / 8];  /* one bit per page */

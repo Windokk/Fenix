@@ -25,19 +25,19 @@ static void extract_framebuffer_info(multiboot_info_t *mbi) {
         vesa_video_info.pitch = tagfb->common.framebuffer_pitch;
         vesa_video_info.type = tagfb->common.framebuffer_type;
 
-        printf("VESA Frambuffer virtual adress : 0x%X\n", vesa_video_info.virt_addr);
+        KLOG_INFO("VESA","Frambuffer virtual adress : 0x%X", vesa_video_info.virt_addr);
 
-        printf("VESA Frambuffer adress : 0x%X\n", vesa_video_info.addr);
+        KLOG_INFO("VESA","Frambuffer adress : 0x%X", vesa_video_info.addr);
 
-        printf("VESA Framebuffer width : %d\n", vesa_video_info.width);
+        KLOG_INFO("VESA","Framebuffer width : %d", vesa_video_info.width);
 
-        printf("VESA Framebuffer height : %d\n", vesa_video_info.height);
+        KLOG_INFO("VESA","Framebuffer height : %d", vesa_video_info.height);
 
-        printf("VESA Framebuffer bpp : %d\n", vesa_video_info.bits);
+        KLOG_INFO("VESA","Framebuffer bpp : %d", vesa_video_info.bits);
 
-        printf("VESA Framebuffer pitch : %d\n", vesa_video_info.pitch);
+        KLOG_INFO("VESA","Framebuffer pitch : %d", vesa_video_info.pitch);
 
-        printf("VESA Framebuffer type : %d\n", vesa_video_info.type);
+        KLOG_INFO("VESA","Framebuffer type : %d", vesa_video_info.type);
       }
   }
 }

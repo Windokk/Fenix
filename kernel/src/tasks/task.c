@@ -37,7 +37,7 @@ task_t *task_create(void (*fn)(void), const char *name) {
     }
     if (!t) {
         if (task_count >= MAX_TASKS) {
-            printf("TASK: max tasks reached\n");
+            KLOG_WARN("TASK","Max tasks reached");
             return NULL;
         }
         t = &task_table[task_count++];
@@ -52,7 +52,7 @@ task_t *task_create(void (*fn)(void), const char *name) {
 
     t->stack = (uint8_t *)malloc(TASK_STACK_SIZE);
     if (!t->stack) {
-        printf("TASK: failed to allocate stack for '%s'\n", name);
+        KLOG_ERROR("TASK","Failed to allocate stack for '%s'", name);
         t->state = TASK_DEAD;
         return NULL;
     }
@@ -135,7 +135,7 @@ void task_unblock(task_t *task) {
 }
 
 void task_exit(void) {
-    printf("TASK: '%s' exited\n", current_task->name);
+    KLOG_INFO("TASK","'%s' exited", current_task->name);
     // Stack is freed when this slot is reused by task_create().
     current_task->state = TASK_DEAD;
     task_yield();
