@@ -240,6 +240,6 @@ void apic_init(void) {
     if (g_acpi.sci_irq < 16)
         ioapic_unmask_irq((uint8_t)g_acpi.sci_irq);
 
-    KLOG_INFO("APIC","Active - LAPIC + %u IOAPIC(s) configured\n",
+    KLOG_INFO("APIC","Active - LAPIC + %u IOAPIC(s) configured",
            g_acpi.ioapic_count);
 }

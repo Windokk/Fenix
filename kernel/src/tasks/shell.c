@@ -237,6 +237,8 @@ static void shell_dispatch(const char *line) {
 /* ------------------------------------------------------------------ */
 
 void shell_task(void) {
+    fb_set_color(255, 255, 255);
+
     static char input[INPUT_MAX];
 
     printf("Fenix Shell - type 'help' for commands\n\n");

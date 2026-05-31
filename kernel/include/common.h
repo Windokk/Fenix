@@ -83,9 +83,23 @@ typedef unsigned long size_t;
 
 extern void HALT_AND_CATCH_FIRE(const char *fmt, ...);
 
-#define KLOG_INFO(tag, fmt, ...)  printf("[" tag " INFO] " fmt "\n", ##__VA_ARGS__)
-#define KLOG_WARN(tag, fmt, ...)  printf("[" tag " WARN] " fmt "\n", ##__VA_ARGS__)
-#define KLOG_ERROR(tag, fmt, ...) printf("[" tag " ERROR] " fmt "\n", ##__VA_ARGS__)
-#define KLOG_FATAL(tag, fmt, ...) \
-    printf("[" tag " FATAL] " fmt "\n", ##__VA_ARGS__); \
+#define KLOG_INFO(tag, fmt, ...)  fb_set_color(80, 210, 90); \
+    printf("[" tag " INFO] "); \  
+    fb_set_color(255, 255, 255); \
+    printf(fmt "\n", ##__VA_ARGS__);
+
+#define KLOG_WARN(tag, fmt, ...)  fb_set_color(255, 180, 0); \
+    printf("[" tag " WARN] "); \  
+    fb_set_color(255, 255, 255); \
+    printf(fmt "\n", ##__VA_ARGS__);
+
+#define KLOG_ERROR(tag, fmt, ...)  fb_set_color(255, 60, 60); \
+    printf("[" tag " ERROR] "); \  
+    fb_set_color(255, 255, 255); \
+    printf(fmt "\n", ##__VA_ARGS__);
+
+#define KLOG_FATAL(tag, fmt, ...)  fb_set_color(255, 0, 0); \
+    printf("[" tag " FATAL] "); \  
+    fb_set_color(255, 255, 255); \
+    printf(fmt "\n", ##__VA_ARGS__); \
     HALT_AND_CATCH_FIRE("[" tag " FATAL] " fmt, ##__VA_ARGS__)

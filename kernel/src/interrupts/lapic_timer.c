@@ -36,7 +36,7 @@ void lapic_timer_init(void){
 
         lapic_ticks_per_ms = lapic_ticks_per_ms_average / 3;
 
-        KLOG_INFO("LAPIC","Timer calibrated: %u ticks/ms\n", lapic_ticks_per_ms);
+        KLOG_INFO("LAPIC","Timer calibrated: %u ticks/ms", lapic_ticks_per_ms);
 
         lapic_write(LAPIC_LVT_TIMER, 0x40 | LAPIC_TIMER_PERIODIC);
         lapic_write(LAPIC_TICR, lapic_ticks_per_ms); 

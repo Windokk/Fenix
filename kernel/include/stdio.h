@@ -18,3 +18,5 @@ void    console_erase_chars(int32_t pixel_width);
 void cursor_show(void);
 void cursor_hide(void);
 extern void cursor_blink_tick(void);
+
+void fb_set_color(uint8_t r, uint8_t g, uint8_t b);

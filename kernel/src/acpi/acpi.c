@@ -97,7 +97,7 @@ void acpi_init(void *mbi_phys) {
 
     struct acpi_fadt *fadt;
     if(uacpi_table_fadt(&fadt) != UACPI_STATUS_OK){
-        KLOG_INFO("ACPI", "MCFG table parsing was unsuccessful : code %u",ust);
+        KLOG_INFO("ACPI", "FADT table parsing was unsuccessful : code %u",ust);
     }
     else
     {
@@ -131,14 +131,27 @@ void acpi_init(void *mbi_phys) {
             switch (e->type) {
                 case ACPI_MADT_ENTRY_TYPE_IOAPIC: {
                     struct acpi_madt_ioapic *io = (struct acpi_madt_ioapic *)e;
+                    if(g_acpi.ioapic_count < ACPI_MAX_IOAPICS){
+                        g_acpi.ioapics[g_acpi.ioapic_count].ioapic_id = io->id;
+                        g_acpi.ioapics[g_acpi.ioapic_count].gsi_base = (uint64_t)io->gsi_base;
+                        g_acpi.ioapics[g_acpi.ioapic_count].phys_addr = io->address;
+                        g_acpi.ioapic_count++;
+                    }
                     break;
                 }
                 case ACPI_MADT_ENTRY_TYPE_INTERRUPT_SOURCE_OVERRIDE: {
                     struct acpi_madt_interrupt_source_override *iso = (struct acpi_madt_interrupt_source_override *)e;
+                    if(g_acpi.iso_count < ACPI_MAX_ISOS){
+                        g_acpi.isos[g_acpi.iso_count].gsi = iso->gsi;
+                        g_acpi.isos[g_acpi.iso_count].flags = iso->flags;
+                        g_acpi.isos[g_acpi.iso_count].irq = iso->source;
+                        g_acpi.iso_count++;
+                    }
                     break;
                 }
                 case ACPI_MADT_ENTRY_TYPE_LAPIC_ADDRESS_OVERRIDE: {
                     struct acpi_madt_lapic_address_override *ovr = (struct acpi_madt_lapic_address_override *)e;
+                    g_acpi.lapic_phys = ovr->address;
                     break;
                 }
             }
@@ -167,7 +180,7 @@ void acpi_init(void *mbi_phys) {
         uint32_t count = (mcfg->hdr.length - sizeof(struct acpi_mcfg))
                         / sizeof(struct acpi_mcfg_allocation);
 
-        for(int i = 0; i < count; i++)
+        for(int i = 0; i < count; i++, count++)
             g_acpi.mcfg[i] = mcfg->entries[i];
     }
 

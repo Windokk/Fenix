@@ -13,6 +13,10 @@ static int32_t cursor_px, cursor_py;  // last-rendered position
 static bool    cursor_on     = false;
 static bool    cursor_active = false; // only true while readline is waiting for input
 
+static uint8_t fb_color_r = 255;
+static uint8_t fb_color_g = 255;
+static uint8_t fb_color_b = 255;
+
 void cursor_render(bool on){
     if (!vesa_video_info.mapped) return;
     if(on)
@@ -85,6 +89,12 @@ void console_erase_chars(int32_t pixel_width) {
     cursor_sync();
 }
 
+void fb_set_color(uint8_t r, uint8_t g, uint8_t b){
+    fb_color_r = r;
+    fb_color_g = g;
+    fb_color_b = b;
+}
+
 static void fb_putchar(char c) {
     if (!vesa_video_info.mapped) return;
     if (c == '\n') {
@@ -94,7 +104,7 @@ static void fb_putchar(char c) {
             fb_scroll();
         return;
     }
-    fb_cx += gfx_draw_char(fb_cx, fb_cy, c, 255, 255, 255);
+    fb_cx += gfx_draw_char(fb_cx, fb_cy, c, fb_color_r, fb_color_g, fb_color_b);
 }
 
 static void fb_puts(const char *s) {
