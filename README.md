@@ -15,6 +15,14 @@
 
 - Build a cross-compiler (x86_64_elf) : gcc, binutils
 - Install xorriso, nasm, grub2 and qemu
+- Clone the project
+- Init submodules (```git submodule update --init --recursive```)
+- Modify line 9 of kernel/vendor/uacpi/include/uacpi/platform/types.h : 
+    ```c
+    #ifdef UACPI_OVERRIDE_TYPES
+    #include "acpi/uacpi_types.h"
+    #else
+    ```
 - Execute run.sh
 
 ## Roadmap (Last Updated May 2026)
@@ -72,8 +80,8 @@
 
 ### Phase 6 - Kernel Hardening & Observability 🔧 **(current)**
 - [x] LAPIC timer calibration against ACPI PM Timer => preemptive scheduling tick
-- [ ] HPET driver (high-resolution monotonic clock source)
-- [ ] Kernel stack-canary support (per-task guard pages or magic value)
+- [x] HPET driver (high-resolution monotonic clock source)
+- [x] Kernel stack-canary support (magic value at stack bottom, checked on yield/exit)
 - [ ] Slab / pool allocator to reduce heap fragmentation
 - [ ] Kernel profiling stubs (cycle-count hooks around scheduler, ISR, heap)
 - [ ] Improved debug console: filter by subsystem, severity levels

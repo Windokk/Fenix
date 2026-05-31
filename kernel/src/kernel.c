@@ -162,7 +162,7 @@ void kernel_premain(unsigned long magic, multiboot_info_t* mbi_phys) {
 
     KLOG_INFO("KERNEL", "Done.");
 
-    KLOG_INFO("KERNEL", "KEYBOARD Initialization");
+    KLOG_INFO("KERNEL", "Keyboard Initialization");
 
     keyboard_enable();
 

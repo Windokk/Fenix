@@ -2,8 +2,9 @@
 
 #include "common.h"
 
-#define TASK_STACK_SIZE  16384
-#define MAX_TASKS        16
+#define TASK_STACK_SIZE     16384
+#define MAX_TASKS           16
+#define STACK_CANARY_MAGIC  0xDEADC0DEDEADC0DEULL
 
 typedef enum {
     TASK_READY,
@@ -33,6 +34,7 @@ void    task_exit(void);
 void    task_sleep(uint64_t ticks);      /* block for N RTC ticks then auto-wake */
 void    task_tick_update(void);          /* called from timer ISR to wake sleeping tasks */
 void    scheduler_start(void);
+void    task_canary_check_all(void);     /* check every live task's stack canary */
 
 // ─── Mutex ────────────────────────────────────────────────────────────────────
 

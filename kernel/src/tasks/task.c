@@ -57,6 +57,9 @@ task_t *task_create(void (*fn)(void), const char *name) {
         return NULL;
     }
 
+    /* Stack canary at the lowest address — first word overwritten on overflow */
+    *(uint64_t *)t->stack = STACK_CANARY_MAGIC;
+
     /* Align stack top to 16 bytes (x86-64 ABI requirement) */
     uint64_t *sp = (uint64_t *)((uint64_t)(t->stack + TASK_STACK_SIZE) & ~0xFULL);
 
@@ -99,11 +102,17 @@ static task_t *scheduler_next(void) {
     return NULL;
 }
 
+static inline void canary_check(task_t *t) {
+    if (*(uint64_t *)t->stack != STACK_CANARY_MAGIC)
+        HALT_AND_CATCH_FIRE("Stack overflow detected in task '%s' (id=%u)", t->name, t->id);
+}
+
 void task_yield(void) {
     uint64_t rflags;
     asm volatile("pushfq; pop %0; cli" : "=r"(rflags));
 
     task_t *prev = current_task;
+    canary_check(prev);
     task_t *next = scheduler_next();
 
     if (!next || next == prev){
@@ -135,6 +144,7 @@ void task_unblock(task_t *task) {
 }
 
 void task_exit(void) {
+    canary_check(current_task);
     KLOG_INFO("TASK","'%s' exited", current_task->name);
     // Stack is freed when this slot is reused by task_create().
     current_task->state = TASK_DEAD;
@@ -159,6 +169,16 @@ void task_tick_update(void) {
             t->wakeup_tick = 0;
             task_unblock(t);
         }
+    }
+}
+
+// ─── Stack canary audit ───────────────────────────────────────────────────────
+
+void task_canary_check_all(void) {
+    for (uint32_t i = 0; i < task_count; i++) {
+        task_t *t = &task_table[i];
+        if (t->state != TASK_DEAD && t->stack)
+            canary_check(t);
     }
 }
 
