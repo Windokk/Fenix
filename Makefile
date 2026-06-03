@@ -1,5 +1,5 @@
 # Define flags
-CCFLAGS = -Wall -Wextra -ffreestanding -nostdlib -mno-red-zone -g -mcmodel=large -m64
+CCFLAGS = -Wall -Wextra -ffreestanding -nostdlib -mno-red-zone -g -mcmodel=large -m64 -fstack-protector-strong
 ASFLAGS = -g
 LDFLAGS = -nostdlib -mcmodel=large
 NASM_FLAGS := -w-number-overflow -felf64 -g
