@@ -11,13 +11,14 @@
 struct mblock_struct {
   uint32_t  size;  
   uint16_t  magic;
-  uint16_t  free;
+  bool  free;
   struct mblock_struct*  next;
 };
 typedef struct mblock_struct mblock_t;
 
+void init_heap();
+void debug_heap_dump();
 void *malloc(uint32_t size);
+void *malloc_aligned(uint32_t size, uint32_t align);
 void *calloc(size_t num, size_t size);
 void free(void* size);
-void debug_heap_dump();
-void init_heap();

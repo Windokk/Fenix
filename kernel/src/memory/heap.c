@@ -1,7 +1,10 @@
 #include "memory/heap.h"
 
 #include "kernel.h"
+
 #include "memory/paging_frames.h"
+
+#include "interrupts/idt.h"
 
 #include "stdio.h"
 
@@ -54,9 +57,12 @@ static mblock_t *split_heap_block(mblock_t *mb, uint32_t size) {
 }
 
 void *malloc(uint32_t size) {
+
     if (size == 0) {
         return NULL;
     }
+
+    uintptr_t int_state = disable_interrupts();
 
     // align to 8-byte boundary
     size = align_to(size, 8);
@@ -69,18 +75,33 @@ void *malloc(uint32_t size) {
         // instead of infinite recursion
 
         KLOG_ERROR("HEAP", "Out of memory allocating %u bytes\n", size);
+        restore_interrupts(int_state);
         return NULL;
     }
 
     mb = split_heap_block(mb, size);
 
+    restore_interrupts(int_state);
+
     return ((uint8_t*)mb) + sizeof(mblock_t);
 }
 
-void *calloc(size_t num, size_t size) {
+void *malloc_aligned(uint32_t size, uint32_t align)
+{
+    uintptr_t ptr = (uintptr_t)malloc(size + align - 1);
+
+    ptr = (ptr + (uintptr_t)(align - 1)) & ~((uintptr_t)(align - 1));
+
+    return (void*)ptr;
+}
+
+void *calloc(size_t num, size_t size)
+{
     if (num == 0 || size == 0) {
         return NULL;
     }
+
+    uintptr_t int_state = disable_interrupts();
 
     uint32_t total = num * size;
 
@@ -91,6 +112,8 @@ void *calloc(size_t num, size_t size) {
     }
 
     memset(ptr, 0, total);
+
+    restore_interrupts(int_state);
 
     return ptr;
 }
@@ -113,9 +136,12 @@ static void coalesce_free_blocks() {
 }
 
 void free(void *ptr) {
+
     if (ptr == NULL) {
         return;
     }
+
+    uintptr_t int_state = disable_interrupts();
 
     mblock_t *mb =
         (mblock_t*)(((uint8_t*)ptr) - sizeof(mblock_t));
@@ -138,6 +164,8 @@ void free(void *ptr) {
 
     // reduce fragmentation
     coalesce_free_blocks();
+
+    restore_interrupts(int_state);
 }
 
 void debug_heap_dump()
@@ -156,15 +184,16 @@ void debug_heap_dump()
     printf("  used   : %u bytes\n", used);
     printf("  free   : %u bytes\n", free_bytes);
 
+    /*
     uint32_t i = 0;
     HEAP_WALKER(mb) {
         KLOG_INFO(
-            "HEAP","[%u] %s  size=%u  addr=0x%X\n",
+            "HEAP","[%u] %s  size=%u  addr=0x%X",
                i++,
                mb->free ? "FREE" : "USED",
                mb->size,
                (uint32_t)(uint64_t)mb);
-    }
+    }*/
 }
 
 void init_heap()

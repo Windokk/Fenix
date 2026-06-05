@@ -2,6 +2,8 @@
 
 #include "common.h"
 
+#include "memory/pool.h"
+
 #define TASK_STACK_SIZE     16384
 #define MAX_TASKS           16
 #define STACK_CANARY_MAGIC  0xDEADC0DEDEADC0DEULL
@@ -23,6 +25,8 @@ typedef struct task_struct {
 } task_t;
 
 extern task_t *current_task;
+
+extern pool_t* stack_pool;
 
 void    task_init(void);
 task_t *task_create(void (*fn)(void), const char *name);

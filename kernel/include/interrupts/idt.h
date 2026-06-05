@@ -106,6 +106,8 @@ typedef struct isr_ctx_struct isr_ctx_t;
 
 void enable_interrupts();
 
-void disable_interrupts();
+uintptr_t disable_interrupts();
+
+void restore_interrupts(uintptr_t interrupts_state);
 
 void idt_init();

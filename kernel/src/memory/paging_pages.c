@@ -121,7 +121,6 @@ void init_paging(){
     init_paging_user();
     init_paging_video();
     x86_set_cr3(TO_PHYS_U64(pml4e));
-    init_heap();
 }
 
 static uint8_t mmio_bitmap[MMIO_POOL_PAGES / 8];  /* one bit per page */

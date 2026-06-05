@@ -10,6 +10,7 @@ extern void task_switch(uint64_t *old_rsp, uint64_t new_rsp);
 extern void task_trampoline();
 
 task_t *current_task = NULL;
+pool_t* stack_pool = NULL;
 
 static task_t   task_table[MAX_TASKS];
 static uint32_t task_count = 0;
@@ -20,6 +21,10 @@ void task_init(void) {
     task_count = 0;
     next_id    = 0;
     current_task = NULL;
+
+    void* backing = malloc_aligned(MAX_TASKS * TASK_STACK_SIZE, 16);
+    stack_pool = (pool_t*)malloc(sizeof(pool_t));
+    pool_init(stack_pool, backing, MAX_TASKS * TASK_STACK_SIZE, TASK_STACK_SIZE);
 }
 
 task_t *task_create(void (*fn)(void), const char *name) {
@@ -28,7 +33,7 @@ task_t *task_create(void (*fn)(void), const char *name) {
     for (uint32_t i = 0; i < task_count; i++) {
         if (task_table[i].state == TASK_DEAD) {
             if (task_table[i].stack) {
-                free(task_table[i].stack);
+                pool_free(stack_pool, task_table[i].stack);
                 task_table[i].stack = NULL;
             }
             t = &task_table[i];
@@ -50,7 +55,7 @@ task_t *task_create(void (*fn)(void), const char *name) {
     strncpy(t->name, name, sizeof(t->name) - 1);
     t->name[sizeof(t->name) - 1] = '\0';
 
-    t->stack = (uint8_t *)malloc(TASK_STACK_SIZE);
+    t->stack = pool_alloc(stack_pool);
     if (!t->stack) {
         KLOG_ERROR("TASK","Failed to allocate stack for '%s'", name);
         t->state = TASK_DEAD;

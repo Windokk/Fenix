@@ -113,33 +113,25 @@ void kernel_premain(unsigned long magic, multiboot_info_t* mbi_phys) {
 
     init_frames(mem.usable_size);
     init_paging();
-    
-    KLOG_INFO("KERNEL", "Done.");
+
+    init_heap();
 
     KLOG_INFO("KERNEL", "ACPI Initialization");
 
     acpi_init(g_mbi_phys);
-
-    KLOG_INFO("KERNEL", "Done.");
     
     KLOG_INFO("KERNEL", "HPET Initialization");
 
     hpet_init();
-
-    KLOG_INFO("KERNEL", "Done.");
     
     KLOG_INFO("KERNEL", "PIC Initialization");
 
     pic_init(false);
-
-    KLOG_INFO("KERNEL", "Done.");
     
     KLOG_INFO("KERNEL", "IDT Initialization");
 
     // Setup Interrupt Descriptor table
     idt_init();
-
-    KLOG_INFO("KERNEL", "Done.");
     
     KLOG_INFO("KERNEL", "APIC Initialization");
 
@@ -154,31 +146,21 @@ void kernel_premain(unsigned long magic, multiboot_info_t* mbi_phys) {
         enable_interrupts();
     }
 
-    KLOG_INFO("KERNEL", "Done.");
-
     KLOG_INFO("KERNEL", "PS/2 Initialization");
 
     ps2_init();
-
-    KLOG_INFO("KERNEL", "Done.");
 
     KLOG_INFO("KERNEL", "Keyboard Initialization");
 
     keyboard_enable();
 
-    KLOG_INFO("KERNEL", "Done.");
-
     KLOG_INFO("KERNEL", "Mouse Initialization");
 
     mouse_enable();
 
-    KLOG_INFO("KERNEL", "Done.");
-
     KLOG_INFO("KERNEL", "RTC Initialization");
 
     rtc_init();
-
-    KLOG_INFO("KERNEL", "Done.");
 
     enable_interrupts();
 }

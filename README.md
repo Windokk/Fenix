@@ -27,7 +27,7 @@
 
 ## Roadmap (Last Updated May 2026)
 
-### Phase 1 - Foundation : Done ✓
+### Phase 1 - Foundation : Done ■■■■■■■■■■ 100%
 - [x] Multiboot2 boot via GRUB 2
 - [x] 32-bit → 64-bit long mode transition
 - [x] Higher-half kernel mapping (PML4 paging)
@@ -44,27 +44,27 @@
 - [x] Graphics primitives (pixel, line, rectangle, filled rectangle, circle, filled circle)
 - [x] Bitmap font (NotoSans / Perfect_DOS_VGA_437, 16 px, 4 bpp)
 
-### Phase 2 - Visible Kernel : Done ✓
+### Phase 2 - Visible Kernel : Done ■■■■■■■■■■ 100%
 - [x] Text rendering (`gfx_draw_text` using bitmap font)
 - [x] `printf` output redirected to framebuffer (alongside serial)
 - [x] RTC driver (read real-time clock)
 - [x] PIT driver (timer interrupts, basic tick counter)
 - [x] Basic on-screen debug console (scrollable text output)
 
-### Phase 3 - Interactive Shell : Done ✓
+### Phase 3 - Interactive Shell : Done ■■■■■■■▢▢▢ 70%
 - [x] Keyboard input line editor (backspace, cursor, history)
 - [x] Simple command parser / REPL
 - [x] Basic built-in commands (`clear`, `help`, `mem`, `time`, `echo`, `shutdown`, `reboot`)
 - [ ] Mouse integration in UI (clickable elements)
 
-### Phase 4 - Multitasking : Done ✓
+### Phase 4 - Multitasking : Done ■■■■■■■■■■ 100%
 - [x] Task control block (TCB) and kernel threads
 - [x] Context switch (register save/restore, TSS stack swap)
 - [x] Round-robin scheduler with `sleep` / yield
 - [x] Mutex (spin-yield, owner tracking, waiter queue)
 - [x] Semaphore (P/V, spin-yield)
 
-### Phase 5 - ACPI & Advanced Interrupts : Done ✓
+### Phase 5 - ACPI & Advanced Interrupts : Done ■■■■■■■■■■ 100%
 - [x] RSDP discovery from Multiboot2 tags (ACPI 1.0 RSDT + 2.0 XSDT)
 - [x] MADT parsing: LAPIC, I/O APIC, interrupt source overrides (ISOs), LAPIC NMI
 - [x] FADT parsing: PM1 control / event blocks, reset register, SCI IRQ
@@ -78,16 +78,16 @@
 - [x] SCI IRQ routing through I/O APIC, PM1 fixed-event handler
 - [x] Graceful fallback to legacy 8259 PIC when APIC is unavailable
 
-### Phase 6 - Kernel Hardening & Observability 🔧 **(current)**
+### Phase 6 - Kernel Hardening & Observability : Done ■■■■■▢▢▢▢▢ 50%
 - [x] LAPIC timer calibration against ACPI PM Timer => preemptive scheduling tick
 - [x] HPET driver (high-resolution monotonic clock source)
 - [x] Kernel stack-canary support (magic value at stack bottom, checked on yield/exit)
-- [ ] Slab / pool allocator to reduce heap fragmentation
+- [x] Slab / pool allocator to reduce heap fragmentation
 - [ ] Kernel profiling stubs (cycle-count hooks around scheduler, ISR, heap)
 - [ ] Improved debug console: filter by subsystem, severity levels
 - [ ] Kernel self-test framework (run at boot, report via serial)
 
-### Phase 7 - SMP & CPU Topology
+### Phase 7 - SMP & CPU Topology : Done ▢▢▢▢▢▢▢▢▢▢ 0%
 - [ ] ACPI CPU enumeration from MADT (all enabled LAPICs)
 - [ ] AP startup sequence (INIT–SIPI–SIPI via LAPIC ICR)
 - [ ] Per-CPU GDT / TSS / IDT and stack
@@ -95,28 +95,28 @@
 - [ ] Spinlock primitive (distinct from mutex — for IRQ-context use)
 - [ ] `cpuid`-based feature detection (XSAVE, invariant TSC, etc.)
 
-### Phase 8 - PCI / PCIe Enumeration
+### Phase 8 - PCI / PCIe Enumeration : Done ▢▢▢▢▢▢▢▢▢▢ 0%
 - [ ] ECAM-based PCIe config space walker
 - [ ] PCI device/vendor database (compact table in kernel)
 - [ ] Generic PCI driver model (probe / remove callbacks)
 - [ ] MSI / MSI-X allocation (vector management, LAPIC targeting)
 - [ ] virtio-pci transport (QEMU-first: blk, net, gpu)
 
-### Phase 9 - Userspace
+### Phase 9 - Userspace : Done ▢▢▢▢▢▢▢▢▢▢ 0%
 - [ ] Syscall interface (`syscall` / `sysret`, syscall dispatch table)
 - [ ] Per-process page tables (CR3 switch on context switch)
 - [ ] User-mode task creation (ring 3 jump, user stack setup)
 - [ ] Minimal user-mode C runtime (stack frame, `main` wrapper)
 - [ ] `brk` / `mmap` anonymous memory for user heap
 
-### Phase 10 - Storage & Filesystem
+### Phase 10 - Storage & Filesystem : Done ▢▢▢▢▢▢▢▢▢▢ 0%
 - [ ] ATA PIO driver (or virtio-blk for QEMU)
 - [ ] AHCI driver (SATA, DMA transfers)
 - [ ] FAT32 filesystem (read-only first, then writable)
 - [ ] VFS abstraction layer (inode, dentry, file-ops)
 - [ ] Simple ramfs / initrd for early boot
 
-### Phase 11 - POSIX & Beyond
+### Phase 11 - POSIX & Beyond : Done ▢▢▢▢▢▢▢▢▢▢ 0%
 - [ ] `fork` / `exec` / `waitpid`
 - [ ] File descriptors (`open`, `read`, `write`, `close`, `dup2`)
 - [ ] ELF binary loader (static executables)

@@ -14,14 +14,22 @@
 #include "tasks/task.h"
 #include "acpi/uacpi_glue.h"
 
-void enable_interrupts() {
-    asm volatile ("sti");
+void enable_interrupts()
+{
+    asm volatile("sti");
 }
 
-void disable_interrupts() {
-    asm volatile ("cli");
+uintptr_t disable_interrupts() {
+
+    uintptr_t flags;
+    asm volatile("pushfq; pop %0; cli" : "=r"(flags) :: "memory");
+    return flags;
 }
 
+void restore_interrupts(uintptr_t interrupts_state)
+{
+    asm volatile("push %0; popfq" :: "r"(interrupts_state) : "memory");
+}
 
 static idt_gate_t idt[IDT_ENTRIES];
 static idt_register_t idt_reg;
