@@ -1,5 +1,7 @@
 #include "common.h"
 
+#include "kernel.h"
+
 #if UINT32_MAX == UINTPTR_MAX
 #define STACK_CHK_GUARD 0xe2dee396
 #else
@@ -11,9 +13,5 @@ uintptr_t __stack_chk_guard = STACK_CHK_GUARD;
 __attribute__((noreturn))
 void __stack_chk_fail(void)
 {
-#if __STDC_HOSTED__
-	abort();
-#elif __is_myos_kernel
-	panic("Stack smashing detected");
-#endif
+	HALT_AND_CATCH_FIRE("Stack smashing detected");
 }

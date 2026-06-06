@@ -25,13 +25,13 @@ void gfx_draw_line(int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t r, u
     // Ensure that color is properly packed in RGB format
     uint32_t color = (r << 16) | (g << 8) | b;
 
-    int x,y,dx,dy,dx1,dy1,px,py,xe,ye,i;
-    dx=x2-x1;
-    dy=y2-y1;
-    dx1=abs(dx);
-    dy1=abs(dy);
-    px=2*dy1-dx1;
-    py=2*dx1-dy1;
+    int x,y,dx,dy,dx1,dy1,px,py,xe,ye;
+    dx = x2 - x1;
+    dy = y2 - y1;
+    dx1 = abs(dx);
+    dy1 = abs(dy);
+    px = 2 * dy1 - dx1;
+    py = 2 * dx1 - dy1;
     if(dy1<=dx1){
         if(dx>=0){
             x=x1;
@@ -39,13 +39,13 @@ void gfx_draw_line(int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t r, u
             xe=x2;
         }
         else{
-            x=x2;
-            y=y2;
-            xe=x1;
+            x = x2;
+            y = y2;
+            xe = x1;
         }
         ((uint32_t*)vesa_video_info.virt_addr)[y * vesa_video_info.width + x] = color;
 
-        for(i=0;x<xe;i++){
+        for(int i = 0; x < xe; i++){
             x=x+1;
             if(px<0)
             {
@@ -78,20 +78,20 @@ void gfx_draw_line(int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t r, u
         }
         ((uint32_t*)vesa_video_info.virt_addr)[y * vesa_video_info.width + x] = color;
         
-        for(i=0;y<ye;i++){
-            y=y+1;
-            if(py<=0){
-                py=py+2*dx1;
+        for(int i = 0;y < ye; i++){
+            y = y + 1;
+            if(py <= 0){
+                py = py + 2 * dx1;
             }
             else
             {
-                if((dx<0 && dy<0) || (dx>0 && dy>0)){
-                    x=x+1;
+                if((dx < 0 && dy < 0) || (dx > 0 && dy > 0)){
+                    x = x + 1;
                 }
                 else{
-                    x=x-1;
+                    x = x - 1;
                 }
-                py=py+2*(dx1-dy1);
+                py = py + 2 * (dx1 - dy1);
             }
             ((uint32_t*)vesa_video_info.virt_addr)[y * vesa_video_info.width + x] = color;
         }

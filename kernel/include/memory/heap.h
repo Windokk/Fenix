@@ -21,4 +21,5 @@ void debug_heap_dump();
 void *kmalloc(uint32_t size);
 void *kmalloc_aligned(uint32_t size, uint32_t align);
 void *kcalloc(size_t num, size_t size);
-void kfree(void* size);
+void kfree(void* ptr);
+void kfree_aligned(void *ptr);

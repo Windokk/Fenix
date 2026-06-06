@@ -180,7 +180,7 @@ void acpi_init(void *mbi_phys) {
         uint32_t count = (mcfg->hdr.length - sizeof(struct acpi_mcfg))
                         / sizeof(struct acpi_mcfg_allocation);
 
-        for(int i = 0; i < count; i++, count++)
+        for(int i = 0; i < (uint32_t)count; i++, count++)
             g_acpi.mcfg[i] = mcfg->entries[i];
     }
 

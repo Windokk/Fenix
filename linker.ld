@@ -22,6 +22,10 @@ SECTIONS
     .rodata ALIGN (0x1000) : AT(ADDR(.rodata) - KERNEL_VMA)
     {
       *(.rodata)
+      . = ALIGN(16);
+      __selftests_start = .;
+      *(.selftests)
+      __selftests_end = .;
     }
 
     .data ALIGN (0x1000) : AT(ADDR(.data) - KERNEL_VMA)

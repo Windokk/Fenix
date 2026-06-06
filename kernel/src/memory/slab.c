@@ -47,7 +47,7 @@ static slab_t* slab_create(slab_cache_t* cache){
     s->free_count = s->obj_count;
     s->prev = s->next = NULL;
     uint8_t* first_obj = (uint8_t*)page + cache->slab_header_size;
-    for(int i = 0; i < s->obj_count - 1; i++){
+    for(int i = 0; (uint32_t)i < s->obj_count - 1; i++){
         void* addr = first_obj + i * cache->slot_size;
         void* addr1 = first_obj + (i + 1) * cache->slot_size;
         *((void**)addr) = addr1;

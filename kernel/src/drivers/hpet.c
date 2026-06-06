@@ -9,7 +9,7 @@
 
 uint32_t freq_hz = 0;
 
-volatile uint64_t *hpet_regs;
+uint64_t *hpet_regs;
 
 void hpet_init(void){
     if (!g_acpi.initialized) {

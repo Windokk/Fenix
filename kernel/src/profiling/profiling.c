@@ -3,7 +3,7 @@
 #include "common.h"
 #include "stdio.h"
 
-profiling_probe_t probes[_PROF_COUNT_] = {{ 0, 0, 0, UINT64_MAX},{ 0, 0, 0, UINT64_MAX},{ 0, 0, 0, UINT64_MAX},{ 0, 0, 0, UINT64_MAX}};
+profiling_probe_t probes[_PROF_COUNT_] = {{ 0, 0, 0, UINT64_MAX},{ 0, 0, 0, UINT64_MAX},{ 0, 0, 0, UINT64_MAX}};
 
 const char* probes_names[_PROF_COUNT_] = {
     "Interrupt subroutine",

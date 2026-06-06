@@ -14,7 +14,7 @@ void pool_init(pool_t *pool, void *backing_memory, size_t total_bytes, size_t sl
     pool->capacity = total_bytes / slot_size;
     pool->slot_size = slot_size;
 
-    for(int i = 0; i < pool->capacity - 1; i++){
+    for(int i = 0; i < (int)pool->capacity - 1; i++){
         void* addr = backing_memory + i * slot_size;
         void* addr1 = backing_memory + (i + 1) * slot_size;
         *((void**)addr) = addr1;

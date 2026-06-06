@@ -98,11 +98,18 @@ void *kmalloc(uint32_t size) {
 
 void *kmalloc_aligned(uint32_t size, uint32_t align)
 {
-    uintptr_t ptr = (uintptr_t)kmalloc(size + align - 1);
+    void* ptr = kmalloc(size + align - 1 + sizeof(void*));
 
-    ptr = (ptr + (uintptr_t)(align - 1)) & ~((uintptr_t)(align - 1));
+    void* aligned_ptr = (void*)(((uintptr_t)ptr + sizeof(void*) + (align - 1)) & ~((uintptr_t)(align - 1)));
 
-    return (void*)ptr;
+    *(void**)(aligned_ptr - sizeof(void*)) = ptr;
+
+    return aligned_ptr;
+}
+
+void kfree_aligned(void *ptr){
+    void* original_ptr = *(void**)((uint8_t*)ptr - sizeof(void*));
+    kfree(original_ptr);
 }
 
 void *kcalloc(size_t num, size_t size)

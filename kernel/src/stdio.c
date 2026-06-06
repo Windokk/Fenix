@@ -176,7 +176,6 @@ void ftoa(float value, char* buffer, int precision) {
 
 void vprintf(const char* format, va_list args) {
     uint8_t pad = 0;
-    char padchar = ' ';
     char buffer[64]; // Temporary buffer for numbers
 
     while (*format != '\0') {
@@ -262,7 +261,6 @@ void vprintf(const char* format, va_list args) {
                 format++;
             } else if (*format >= '0' && *format <= '9') {
                 if (*format == '0') {
-                    padchar = '0';
                     format++;
                 }
                 while (*format >= '0' && *format <= '9') {

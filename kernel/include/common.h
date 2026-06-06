@@ -119,28 +119,28 @@ extern void HALT_AND_CATCH_FIRE(const char *fmt, ...);
 
 #define KLOG_INFO(tag, fmt, ...)  do { \
         fb_set_color(80, 210, 90); \
-        printf("[" tag " INFO] "); \  
+        printf("[" tag " INFO] "); \
         fb_set_color(255, 255, 255); \
         printf(fmt "\n", ##__VA_ARGS__); \
     } while(0)
 
-#define KLOG_WARN(tag, fmt, ...)  do { \  
+#define KLOG_WARN(tag, fmt, ...)  do { \
         fb_set_color(255, 180, 0); \
-        printf("[" tag " WARN] "); \  
+        printf("[" tag " WARN] "); \
         fb_set_color(255, 255, 255); \
         printf(fmt "\n", ##__VA_ARGS__); \
     } while(0)
 
 #define KLOG_ERROR(tag, fmt, ...) do { \
         fb_set_color(255, 60, 60); \
-        printf("[" tag " ERROR] "); \  
+        printf("[" tag " ERROR] "); \
         fb_set_color(255, 255, 255); \
         printf(fmt "\n", ##__VA_ARGS__); \
     } while(0)
 
 #define KLOG_FATAL(tag, fmt, ...)  do { \
         fb_set_color(255, 0, 0); \
-        printf("[" tag " FATAL] "); \  
+        printf("[" tag " FATAL] "); \
         fb_set_color(255, 255, 255); \
         printf(fmt "\n", ##__VA_ARGS__); \
         HALT_AND_CATCH_FIRE("[" tag " FATAL] " fmt, ##__VA_ARGS__); \
