@@ -3,12 +3,18 @@
 
 #include "stdio.h"
 #include "string.h"
+
 #include "acpi/acpi.h"
+
 #include "drivers/keyboard.h"
 #include "drivers/vesa.h"
 #include "drivers/rtc.h"
+
 #include "graphics/gfx.h"
+
 #include "memory/heap.h"
+
+#include "profiling/profiling.h"
 
 #define INPUT_MAX    256
 #define ARGS_MAX     16
@@ -172,6 +178,7 @@ static void cmd_help(void) {
     printf("  echo <text>  - print text\n");
     printf("  time         - show current RTC time\n");
     printf("  mem          - show heap debug info\n");
+    printf("  prof         - show profiling debug info\n");
     printf("  shutdown     - shut system down\n");
     printf("  reboot       - reboot system\n");
 }
@@ -208,6 +215,10 @@ static void cmd_reboot(void) {
     acpi_reboot();
 }
 
+static void cmd_prof(void) {
+    debug_prof_dump();
+}
+
 /* ------------------------------------------------------------------ */
 /* Dispatch                                                           */
 /* ------------------------------------------------------------------ */
@@ -226,6 +237,7 @@ static void shell_dispatch(const char *line) {
     if (strcmp(argv[0], "echo")     == 0) { cmd_echo(argc, argv);         return; }
     if (strcmp(argv[0], "time")     == 0) { cmd_time();                   return; }
     if (strcmp(argv[0], "mem")      == 0) { cmd_mem();                    return; }
+    if (strcmp(argv[0], "prof")     == 0) { cmd_prof();                   return; }
     if (strcmp(argv[0], "shutdown") == 0) { cmd_shutdown();               return; }
     if (strcmp(argv[0], "reboot")   == 0) { cmd_reboot();                 return; }
 

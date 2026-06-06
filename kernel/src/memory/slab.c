@@ -35,7 +35,7 @@ static void slab_list_remove(slab_t** head, slab_t* s){
 // Allocates and initializes a new slab for this cache
 // Returns NULL if malloc_aligned fails
 static slab_t* slab_create(slab_cache_t* cache){
-    void* page = malloc_aligned(FRAME_SIZE, FRAME_SIZE);
+    void* page = kmalloc_aligned(FRAME_SIZE, FRAME_SIZE);
 
     if(page == NULL){
         return NULL;
@@ -61,7 +61,7 @@ static slab_t* slab_create(slab_cache_t* cache){
 
 slab_cache_t* slab_cache_create(const char* name, size_t obj_size){
 
-    slab_cache_t* cache = malloc(sizeof(slab_cache_t));
+    slab_cache_t* cache = kmalloc(sizeof(slab_cache_t));
 
     strncpy(cache->name, name, 31); 
 
@@ -77,7 +77,7 @@ slab_cache_t* slab_cache_create(const char* name, size_t obj_size){
 
     if(cache->objs_per_slab == 0){
         KLOG_ERROR("MEM SLAB", "Couldn't create slab cache : Wrong object size");
-        free(cache);
+        kfree(cache);
         return NULL;
     }
 

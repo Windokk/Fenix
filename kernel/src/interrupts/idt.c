@@ -11,8 +11,11 @@
 #include "drivers/rtc.h"
 
 #include "acpi/acpi.h"
-#include "tasks/task.h"
 #include "acpi/uacpi_glue.h"
+
+#include "tasks/task.h"
+
+#include "profiling/profiling.h"
 
 void enable_interrupts()
 {
@@ -135,6 +138,10 @@ void idt_init() {
 
 void interrupt_handler(isr_ctx_t *regs) {
 
+    #ifdef KERNEL_PROFILING
+    uint64_t t0 = rdtsc();
+    #endif
+
     uint8_t int_no   = regs->int_no;
     bool    preempt  = false;
 
@@ -152,15 +159,15 @@ void interrupt_handler(isr_ctx_t *regs) {
         if (!g_use_apic) pic_unmask_irq(PIC_PS2_MOUSE_INTERRUPT);
     }
     else if (g_acpi.initialized && int_no == (uint8_t)(32u + g_acpi.sci_irq)) {
-        /* SCI: dispatch through uACPI when ready, else hand-rolled handler */
+        // SCI: dispatch through uACPI when ready, else hand-rolled handler
         uacpi_sci_dispatch();
     }
     else if(int_no == 64){
         lapic_timer_handle_irq();
-        preempt = true;  /* preempt after EOI, not before */
+        preempt = true;  // preempt after EOI, not before
     }
     else if (int_no >= 32) {
-        /* Unknown hardware IRQ — just EOI and return */
+        // Unknown hardware IRQ — just EOI and return
         if (g_use_apic) lapic_send_eoi();
         return;
     }
@@ -172,15 +179,19 @@ void interrupt_handler(isr_ctx_t *regs) {
         }
     }
 
+    #ifdef KERNEL_PROFILING
+    prof_record(PROF_ISR, rdtsc() - t0);
+    #endif
+
     /*
-     * Send EOI before potentially yielding.  If we context-switch here the
-     * LAPIC in-service bit must already be cleared; otherwise the LAPIC will
-     * not deliver any further interrupts until this task runs again.
-     */
+    * Send EOI before potentially yielding.  If we context-switch here the
+    * LAPIC in-service bit must already be cleared; otherwise the LAPIC will
+    * not deliver any further interrupts until this task runs again.
+    */
     if (g_use_apic) lapic_send_eoi();
 
     if (preempt && current_task) {
-        task_tick_update();  /* wake any tasks whose sleep timer expired */
-        task_yield();        /* preemptive round-robin */
+        task_tick_update();  // wake any tasks whose sleep timer expired
+        task_yield();        // preemptive round-robin
     }
 }

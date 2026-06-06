@@ -8,6 +8,8 @@
 
 #include "stdio.h"
 
+#include "profiling/profiling.h"
+
 mblock_t *root_mblock;
 
 static uint32_t align_to(uint32_t addr, uint32_t align) {
@@ -56,7 +58,11 @@ static mblock_t *split_heap_block(mblock_t *mb, uint32_t size) {
     return mb;
 }
 
-void *malloc(uint32_t size) {
+void *kmalloc(uint32_t size) {
+
+    #ifdef KERNEL_PROFILING
+    uint64_t t0 = rdtsc();
+    #endif
 
     if (size == 0) {
         return NULL;
@@ -83,19 +89,23 @@ void *malloc(uint32_t size) {
 
     restore_interrupts(int_state);
 
+    #ifdef KERNEL_PROFILING
+    prof_record(PROF_KMALLOC, rdtsc() - t0);
+    #endif
+
     return ((uint8_t*)mb) + sizeof(mblock_t);
 }
 
-void *malloc_aligned(uint32_t size, uint32_t align)
+void *kmalloc_aligned(uint32_t size, uint32_t align)
 {
-    uintptr_t ptr = (uintptr_t)malloc(size + align - 1);
+    uintptr_t ptr = (uintptr_t)kmalloc(size + align - 1);
 
     ptr = (ptr + (uintptr_t)(align - 1)) & ~((uintptr_t)(align - 1));
 
     return (void*)ptr;
 }
 
-void *calloc(size_t num, size_t size)
+void *kcalloc(size_t num, size_t size)
 {
     if (num == 0 || size == 0) {
         return NULL;
@@ -105,7 +115,7 @@ void *calloc(size_t num, size_t size)
 
     uint32_t total = num * size;
 
-    void *ptr = malloc(total);
+    void *ptr = kmalloc(total);
 
     if (ptr == NULL) {
         return NULL;
@@ -135,7 +145,11 @@ static void coalesce_free_blocks() {
     }
 }
 
-void free(void *ptr) {
+void kfree(void *ptr) {
+
+    #ifdef KERNEL_PROFILING
+    uint64_t t0 = rdtsc();
+    #endif
 
     if (ptr == NULL) {
         return;
@@ -166,6 +180,11 @@ void free(void *ptr) {
     coalesce_free_blocks();
 
     restore_interrupts(int_state);
+
+    #ifdef KERNEL_PROFILING
+    prof_record(PROF_KFREE, rdtsc() - t0);
+    #endif
+
 }
 
 void debug_heap_dump()

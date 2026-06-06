@@ -79,11 +79,11 @@ void uacpi_kernel_log(uacpi_log_level level, const uacpi_char *msg) {
 // Heap allocation
 
 void *uacpi_kernel_alloc(uacpi_size size) {
-    return malloc((unsigned long)size);
+    return kmalloc((unsigned long)size);
 }
 
 void uacpi_kernel_free(void *mem) {
-    if (mem) free(mem);
+    if (mem) kfree(mem);
 }
 
 // Timing
@@ -115,13 +115,13 @@ void uacpi_kernel_sleep(uacpi_u64 msec) {
 // Mutex
 
 uacpi_handle uacpi_kernel_create_mutex(void) {
-    mutex_t *m = (mutex_t *)malloc(sizeof(mutex_t));
+    mutex_t *m = (mutex_t *)kmalloc(sizeof(mutex_t));
     if (m) mutex_init(m);
     return (uacpi_handle)m;
 }
 
 void uacpi_kernel_free_mutex(uacpi_handle handle) {
-    free(handle);
+    kfree(handle);
 }
 
 uacpi_status uacpi_kernel_acquire_mutex(uacpi_handle handle, uacpi_u16 timeout) {
@@ -146,13 +146,13 @@ void uacpi_kernel_release_mutex(uacpi_handle handle) {
 // Event (counting semaphore)
 
 uacpi_handle uacpi_kernel_create_event(void) {
-    semaphore_t *s = (semaphore_t *)malloc(sizeof(semaphore_t));
+    semaphore_t *s = (semaphore_t *)kmalloc(sizeof(semaphore_t));
     if (s) sem_init(s, 0);
     return (uacpi_handle)s;
 }
 
 void uacpi_kernel_free_event(uacpi_handle handle) {
-    free(handle);
+    kfree(handle);
 }
 
 uacpi_bool uacpi_kernel_wait_for_event(uacpi_handle handle, uacpi_u16 timeout) {
@@ -208,13 +208,13 @@ void uacpi_kernel_restore_interrupts(uacpi_interrupt_state state) {
 typedef struct { volatile int locked; } spinlock_impl_t;
 
 uacpi_handle uacpi_kernel_create_spinlock(void) {
-    spinlock_impl_t *s = (spinlock_impl_t *)malloc(sizeof(spinlock_impl_t));
+    spinlock_impl_t *s = (spinlock_impl_t *)kmalloc(sizeof(spinlock_impl_t));
     if (s) s->locked = 0;
     return (uacpi_handle)s;
 }
 
 void uacpi_kernel_free_spinlock(uacpi_handle handle) {
-    free(handle);
+    kfree(handle);
 }
 
 uacpi_cpu_flags uacpi_kernel_lock_spinlock(uacpi_handle handle) {
@@ -312,7 +312,7 @@ uacpi_status uacpi_kernel_pci_device_open(
     /* Only support segment 0 via legacy I/O port mechanism */
     if (address.segment != 0) return UACPI_STATUS_NOT_FOUND;
 
-    pci_device_impl_t *d = (pci_device_impl_t *)malloc(sizeof(pci_device_impl_t));
+    pci_device_impl_t *d = (pci_device_impl_t *)kmalloc(sizeof(pci_device_impl_t));
     if (!d) return UACPI_STATUS_OUT_OF_MEMORY;
 
     d->bus      = (uint8_t)address.bus;
@@ -322,7 +322,7 @@ uacpi_status uacpi_kernel_pci_device_open(
     return UACPI_STATUS_OK;
 }
 
-void uacpi_kernel_pci_device_close(uacpi_handle handle) { free(handle); }
+void uacpi_kernel_pci_device_close(uacpi_handle handle) { kfree(handle); }
 
 uacpi_status uacpi_kernel_pci_read8(
     uacpi_handle h, uacpi_size off, uacpi_u8 *out)
@@ -384,14 +384,14 @@ uacpi_status uacpi_kernel_io_map(
     uacpi_io_addr base, uacpi_size len, uacpi_handle *out_handle)
 {
     (void)len;
-    io_range_impl_t *r = (io_range_impl_t *)malloc(sizeof(io_range_impl_t));
+    io_range_impl_t *r = (io_range_impl_t *)kmalloc(sizeof(io_range_impl_t));
     if (!r) return UACPI_STATUS_OUT_OF_MEMORY;
     r->base     = base;
     *out_handle = (uacpi_handle)r;
     return UACPI_STATUS_OK;
 }
 
-void uacpi_kernel_io_unmap(uacpi_handle handle) { free(handle); }
+void uacpi_kernel_io_unmap(uacpi_handle handle) { kfree(handle); }
 
 uacpi_status uacpi_kernel_io_read8(
     uacpi_handle h, uacpi_size off, uacpi_u8 *out)

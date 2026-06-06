@@ -18,7 +18,7 @@ typedef struct mblock_struct mblock_t;
 
 void init_heap();
 void debug_heap_dump();
-void *malloc(uint32_t size);
-void *malloc_aligned(uint32_t size, uint32_t align);
-void *calloc(size_t num, size_t size);
-void free(void* size);
+void *kmalloc(uint32_t size);
+void *kmalloc_aligned(uint32_t size, uint32_t align);
+void *kcalloc(size_t num, size_t size);
+void kfree(void* size);

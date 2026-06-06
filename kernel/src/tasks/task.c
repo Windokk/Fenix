@@ -22,8 +22,8 @@ void task_init(void) {
     next_id    = 0;
     current_task = NULL;
 
-    void* backing = malloc_aligned(MAX_TASKS * TASK_STACK_SIZE, 16);
-    stack_pool = (pool_t*)malloc(sizeof(pool_t));
+    void* backing = kmalloc_aligned(MAX_TASKS * TASK_STACK_SIZE, 16);
+    stack_pool = (pool_t*)kmalloc(sizeof(pool_t));
     pool_init(stack_pool, backing, MAX_TASKS * TASK_STACK_SIZE, TASK_STACK_SIZE);
 }
 

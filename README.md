@@ -83,7 +83,7 @@
 - [x] HPET driver (high-resolution monotonic clock source)
 - [x] Kernel stack-canary support (magic value at stack bottom, checked on yield/exit)
 - [x] Slab / pool allocator to reduce heap fragmentation
-- [ ] Kernel profiling stubs (cycle-count hooks around scheduler, ISR, heap)
+- [x] Kernel profiling stubs (cycle-count hooks around scheduler, ISR, heap)
 - [ ] Improved debug console: filter by subsystem, severity levels
 - [ ] Kernel self-test framework (run at boot, report via serial)
 
@@ -130,8 +130,7 @@
 
 ### Resources : 
 - Fonts : 
-    - Perfect DOS VGA 437 by Zeh Fernando (zeh@zehfernando.com)
-    - Noto Sans by The Noto Project Authors (https://github.com/notofonts/latin-greek-cyrillic)
+    - Perfect DOS VGA 437 by Zeh Fernando (zeh@zehfernando.com) 
 - Images : 
 - Video : 
 - Sound/Music : 

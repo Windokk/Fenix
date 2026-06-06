@@ -14,7 +14,6 @@ typedef struct {
 #define FONT_LAST           255
 #define FONT_HEIGHT         16
 #define FONT_BPP            4
-#define FONT_USE_DOS_VGA    1
 
 // pixels packed per byte
 #define FONT_PIXELS_PER_BYTE (8 / FONT_BPP)

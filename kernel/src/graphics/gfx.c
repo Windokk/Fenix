@@ -1,5 +1,4 @@
 #include "graphics/gfx.h"
-#include "fonts/noto_sans.h"
 #include "fonts/dos_vga_437.h"
 
 void gfx_draw_pixel(int32_t x, int32_t y, uint32_t r, uint32_t g, uint32_t b)
@@ -295,17 +294,10 @@ int32_t gfx_draw_char(int32_t x, int32_t y, char c, uint32_t r, uint32_t g, uint
     uint32_t glyph_index =
         (uint8_t)c - FONT_FIRST;
 
-    #if FONT_USE_DOS_VGA
-        const Glyph *glyphs =
-            &dos_vga_437Glyphs[glyph_index];
-        const uint8_t *glyph =
-            &dos_vga_437[glyphs->offset];
-    #else
-        const Glyph *glyphs =
-            &NotoSansGlyphs[glyph_index];
-        const uint8_t *glyph =
-            &noto_sans[glyphs->offset];
-    #endif
+    const Glyph *glyphs =
+        &dos_vga_437Glyphs[glyph_index];
+    const uint8_t *glyph =
+        &dos_vga_437[glyphs->offset];
 
     const uint32_t glyph_width =
         glyphs->width;
@@ -467,17 +459,9 @@ int32_t gfx_text_width(
             uint32_t glyph_index =
                 (uint8_t)*str - FONT_FIRST;
 
-            #if FONT_USE_DOS_VGA
-                line_width +=
-                    dos_vga_437Glyphs[glyph_index].width +
-                    FONT_SPACING;
-            #else
-                line_width +=
-                    NotoSansGlyphs[glyph_index].width +
-                    FONT_SPACING;
-            #endif
-
-            
+            line_width +=
+                dos_vga_437Glyphs[glyph_index].width +
+                FONT_SPACING;
         }
 
         str++;
