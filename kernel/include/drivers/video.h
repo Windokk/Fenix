@@ -14,10 +14,13 @@ typedef struct video_info_struct {
   int height;
   int bits;
   int pitch;
-  uint8_t  type;
+  uint8_t type;
   bool mapped;
+  uint8_t r_pos;
+  uint8_t g_pos;
+  uint8_t b_pos;
 } video_info_t;
 
-extern struct video_info_struct vesa_video_info;
+extern struct video_info_struct video_info;
 
-void init_kernel_vesa(multiboot_info_t *mbi);
+void init_kernel_video(multiboot_info_t *mbi);

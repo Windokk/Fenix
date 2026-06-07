@@ -67,13 +67,21 @@ void uacpi_kernel_unmap(void *addr, uacpi_size len) {
 
 void uacpi_kernel_log(uacpi_log_level level, const uacpi_char *msg) {
     /* Only forward WARN and ERROR to keep boot output clean. */
-    const char *prefix;
-    switch (level) {
-    case UACPI_LOG_ERROR: prefix = "[uACPI ERROR] " ; break;
-    case UACPI_LOG_WARN:  prefix = "[uACPI WARN] "  ; break;
-    default:              return;
+    if(strlen(msg) > 0){
+
+        char msg_buf[512];
+
+        strcpy(msg_buf, msg);
+
+        msg_buf[strlen(msg) - 1] = '\0';
+
+        switch (level) {
+            case UACPI_LOG_ERROR: KLOG_ERROR("uACPI", "%s", msg_buf); break;
+            case UACPI_LOG_WARN:  KLOG_WARN("uACPI", "%s", msg_buf); break;
+            default:              return;
+        }
     }
-    printf("%s%s", prefix, msg);
+    
 }
 
 // Heap allocation

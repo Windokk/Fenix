@@ -3,12 +3,13 @@ OUTPUT_FORMAT(elf64-x86-64)
 KERNEL_LMA = 0x100000; 
 KERNEL_VMA = 0xFFFF800000000000;
 
-ENTRY(start)
+ENTRY(start_efi64)
 SECTIONS
 {
     . = KERNEL_LMA;
     .boot : {
       *(.multiboot_header)
+      *(.efi64_entry)
     }
 
     . += KERNEL_VMA;

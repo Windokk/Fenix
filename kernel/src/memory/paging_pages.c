@@ -15,7 +15,7 @@ pte_t   pte_krnluser[512] __attribute__((aligned(4096)));
 
 pdpe_t  pdpe_video[512] __attribute__((aligned(4096)));
 pde_t   pde_video[512] __attribute__((aligned(4096)));
-pte_t   pte_video[1024] __attribute__((aligned(4096)));
+pte_t   pte_video[2048] __attribute__((aligned(4096)));
 
 pdpe_t  pdpe_mmio[512] __attribute__((aligned(4096)));
 pde_t   pde_mmio[512] __attribute__((aligned(4096)));
@@ -90,14 +90,14 @@ static void init_paging_user() {
 }
 
 static void init_paging_video() {
-  uint64_t video_framebuffer = vesa_video_info.addr;
-  uint64_t framebuffer_size = (uint32_t)vesa_video_info.pitch * vesa_video_info.height;
+  uint64_t video_framebuffer = video_info.addr;
+  uint64_t framebuffer_size = (uint32_t)video_info.pitch * video_info.height;
   uint64_t num_pages = (framebuffer_size + PAGE_SIZE - 1) / PAGE_SIZE;
 
   // Initialize the PDPE and PDE structures for the video memory mapping
   memset(&pdpe_video, 0, sizeof(pdpe_t) * 512);
   memset(&pde_video, 0, sizeof(pde_t) * 512);
-  memset(&pte_video, 0, sizeof(pte_t) * 1024);
+  memset(&pte_video, 0, sizeof(pte_t) * 2048);
 
   // Set up the PML4E entry for the video memory region
   pml4e[0x180].all = TO_PHYS_U64(&pdpe_video) | PAGE_PRESENT_CPL0;
@@ -105,15 +105,17 @@ static void init_paging_video() {
   // Link the PDPE to the PDE
   pdpe_video[0].all = TO_PHYS_U64(&pde_video) | PAGE_PRESENT_CPL0;
 
-  // Two PDE entries: each covers 512 × 4KB = 2MB (framebuffer is 3MB at 1024×768×32bpp)
+  // Two PDE entries: each covers 512 × 4KB = 2MB (framebuffer is 8.3MB at 1920×1080×32bpp)
   pde_video[0].all = TO_PHYS_U64(&pte_video[0])   | PAGE_PRESENT_CPL0;
   pde_video[1].all = TO_PHYS_U64(&pte_video[512]) | PAGE_PRESENT_CPL0;
+  pde_video[2].all = TO_PHYS_U64(&pte_video[1024]) | PAGE_PRESENT_CPL0;
+  pde_video[3].all = TO_PHYS_U64(&pte_video[1536]) | PAGE_PRESENT_CPL0;
 
   for (uint64_t i = 0; i < num_pages; i++) {
       pte_video[i].all = (video_framebuffer + (i * PAGE_SIZE)) | PAGE_PRESENT_CPL0;
   }
 
-  vesa_video_info.mapped = true;
+  video_info.mapped = true;
 }
 
 void init_paging(){

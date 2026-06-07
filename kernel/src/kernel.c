@@ -18,7 +18,6 @@
 #include "drivers/ps2.h"
 #include "drivers/rtc.h"
 #include "drivers/serial.h"
-#include "drivers/vesa.h"
 #include "drivers/hpet.h"
 
 #include "graphics/gfx.h"
@@ -107,7 +106,7 @@ void kernel_premain(unsigned long magic, multiboot_info_t* mbi_phys) {
 
     g_mbi_phys = mbi_phys;
 
-    init_kernel_vesa(TO_VMA_PTR(multiboot_info_t *, mbi_phys));
+    init_kernel_video(TO_VMA_PTR(multiboot_info_t *, mbi_phys));
 
     KLOG_INFO("KERNEL", "Memory Initialization");
 
@@ -121,7 +120,7 @@ void kernel_premain(unsigned long magic, multiboot_info_t* mbi_phys) {
     KLOG_INFO("KERNEL", "ACPI Initialization");
 
     acpi_init(g_mbi_phys);
-    
+
     KLOG_INFO("KERNEL", "HPET Initialization");
 
     hpet_init();

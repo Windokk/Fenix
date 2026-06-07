@@ -23,7 +23,7 @@ void init_frames(size_t total_memory){
 
     /* Bitmap needs INDEX_FROM_BIT(mmu_nframes) uint32s, but we advance by
        mmu_nframes * sizeof(uint32_t) to keep the original layout. */
-    heap_start = (uint64_t)mmu_frames + mmu_nframes * sizeof(uint32_t);
+    heap_start = (uint64_t)mmu_frames + INDEX_FROM_BIT(mmu_nframes) * sizeof(uint32_t);
 
     memset(mmu_frames, 0, INDEX_FROM_BIT(mmu_nframes) * sizeof(uint32_t));
 

@@ -4,21 +4,21 @@
 void gfx_draw_pixel(int32_t x, int32_t y, uint32_t r, uint32_t g, uint32_t b)
 {
 
-    if (x < 0 || y < 0 || x >= vesa_video_info.width || y >= vesa_video_info.height) {
+    if (x < 0 || y < 0 || x >= video_info.width || y >= video_info.height) {
         return;
     }
 
     uint32_t color = (r << 16) | (g << 8) | b;
 
     // Write the pixel to the framebuffer
-    ((uint32_t*)vesa_video_info.virt_addr)[y * vesa_video_info.width + x] = color;
+    ((uint32_t*)video_info.virt_addr)[y * (video_info.pitch / (video_info.bits / 8)) + x] = color;
     
 }
 
 void gfx_draw_line(int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t r, uint32_t g, uint32_t b) {
 
-    if ((x1 < 0 && x2 < 0) || (x1 >= vesa_video_info.width && x2 >= vesa_video_info.width) ||
-        (y1 < 0 && y2 < 0) || (y1 >= vesa_video_info.height && y2 >= vesa_video_info.height)) {
+    if ((x1 < 0 && x2 < 0) || (x1 >= video_info.width && x2 >= video_info.width) ||
+        (y1 < 0 && y2 < 0) || (y1 >= video_info.height && y2 >= video_info.height)) {
         return;
     }
 
@@ -43,7 +43,7 @@ void gfx_draw_line(int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t r, u
             y = y2;
             xe = x1;
         }
-        ((uint32_t*)vesa_video_info.virt_addr)[y * vesa_video_info.width + x] = color;
+        ((uint32_t*)video_info.virt_addr)[y * (video_info.pitch / (video_info.bits / 8)) + x] = color;
 
         for(int i = 0; x < xe; i++){
             x=x+1;
@@ -61,7 +61,7 @@ void gfx_draw_line(int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t r, u
                 }
                 px=px+2*(dy1-dx1);
             }
-            ((uint32_t*)vesa_video_info.virt_addr)[y * vesa_video_info.width + x] = color;
+            ((uint32_t*)video_info.virt_addr)[y * (video_info.pitch / (video_info.bits / 8)) + x] = color;
         }
     }
     else{
@@ -76,7 +76,7 @@ void gfx_draw_line(int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t r, u
             y=y2;
             ye=y1;
         }
-        ((uint32_t*)vesa_video_info.virt_addr)[y * vesa_video_info.width + x] = color;
+        ((uint32_t*)video_info.virt_addr)[y * (video_info.pitch / (video_info.bits / 8)) + x] = color;
         
         for(int i = 0;y < ye; i++){
             y = y + 1;
@@ -93,15 +93,15 @@ void gfx_draw_line(int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t r, u
                 }
                 py = py + 2 * (dx1 - dy1);
             }
-            ((uint32_t*)vesa_video_info.virt_addr)[y * vesa_video_info.width + x] = color;
+            ((uint32_t*)video_info.virt_addr)[y * (video_info.pitch / (video_info.bits / 8)) + x] = color;
         }
     }
 }
 
 void gfx_draw_rectangle(int32_t x, int32_t y, int32_t width, int32_t height,  uint32_t r, uint32_t g, uint32_t b)
 {
-    if (x + width < 0 || x >= vesa_video_info.width || 
-        y + height < 0 || y >= vesa_video_info.height) {
+    if (x + width < 0 || x >= video_info.width || 
+        y + height < 0 || y >= video_info.height) {
         return;
     }
 
@@ -122,8 +122,8 @@ void gfx_draw_filled_rectangle(int32_t x, int32_t y, int32_t width, int32_t heig
 {
     int32_t x0 = x < 0 ? 0 : x;
     int32_t y0 = y < 0 ? 0 : y;
-    int32_t x1 = x + width  > vesa_video_info.width  ? vesa_video_info.width  : x + width;
-    int32_t y1 = y + height > vesa_video_info.height ? vesa_video_info.height : y + height;
+    int32_t x1 = x + width  > video_info.width  ? video_info.width  : x + width;
+    int32_t y1 = y + height > video_info.height ? video_info.height : y + height;
 
     if (x0 >= x1 || y0 >= y1) return;
 
@@ -131,15 +131,15 @@ void gfx_draw_filled_rectangle(int32_t x, int32_t y, int32_t width, int32_t heig
 
     for (int32_t y_ = y0; y_ < y1; y_++) {
         for (int32_t x_ = x0; x_ < x1; x_++) {
-            ((uint32_t*)vesa_video_info.virt_addr)[y_ * vesa_video_info.width + x_] = color;
+            ((uint32_t*)video_info.virt_addr)[y_ * (video_info.pitch / (video_info.bits / 8)) + x_] = color;
         }
     }
 }
 
 void gfx_draw_circle(int32_t centerX, int32_t centerY, int32_t radius, uint32_t r, uint32_t g, uint32_t b)
 {
-    if (centerX - radius < 0 || centerX + radius > vesa_video_info.width ||
-        centerY - radius < 0 || centerY + radius > vesa_video_info.height) {
+    if (centerX - radius < 0 || centerX + radius > video_info.width ||
+        centerY - radius < 0 || centerY + radius > video_info.height) {
         return;
     }
             
@@ -149,22 +149,22 @@ void gfx_draw_circle(int32_t centerX, int32_t centerY, int32_t radius, uint32_t 
     // Calculate the maximum x distance from the center
     l = (int) radius * COS(PI / 4);
 
-    uint32_t* framebuffer_virt_addr = ((uint32_t*)vesa_video_info.virt_addr);
+    uint32_t* framebuffer_virt_addr = ((uint32_t*)video_info.virt_addr);
 
     for (int x = 0; x <= l; x++) {
         // Calculate y based on the Pythagorean theorem for the circle
         int y = (int) sqrt((double) (radius * radius) - (x * x));
 
         // Draw the four symmetric points of the circle relative to the center (centerX, centerY)
-        framebuffer_virt_addr[(centerY + y) * vesa_video_info.width + (centerX + x)] = color;
-        framebuffer_virt_addr[(centerY - y) * vesa_video_info.width + (centerX + x)] = color;
-        framebuffer_virt_addr[(centerY + y) * vesa_video_info.width + (centerX - x)] = color;
-        framebuffer_virt_addr[(centerY - y) * vesa_video_info.width + (centerX - x)] = color;
+        framebuffer_virt_addr[(centerY + y) * (video_info.pitch / (video_info.bits / 8)) + (centerX + x)] = color;
+        framebuffer_virt_addr[(centerY - y) * (video_info.pitch / (video_info.bits / 8)) + (centerX + x)] = color;
+        framebuffer_virt_addr[(centerY + y) * (video_info.pitch / (video_info.bits / 8)) + (centerX - x)] = color;
+        framebuffer_virt_addr[(centerY - y) * (video_info.pitch / (video_info.bits / 8)) + (centerX - x)] = color;
 
-        framebuffer_virt_addr[(centerY + x) * vesa_video_info.width + (centerX + y)] = color;
-        framebuffer_virt_addr[(centerY - x) * vesa_video_info.width + (centerX + y)] = color;
-        framebuffer_virt_addr[(centerY + x) * vesa_video_info.width + (centerX - y)] = color;
-        framebuffer_virt_addr[(centerY - x) * vesa_video_info.width + (centerX - y)] = color;
+        framebuffer_virt_addr[(centerY + x) * (video_info.pitch / (video_info.bits / 8)) + (centerX + y)] = color;
+        framebuffer_virt_addr[(centerY - x) * (video_info.pitch / (video_info.bits / 8)) + (centerX + y)] = color;
+        framebuffer_virt_addr[(centerY + x) * (video_info.pitch / (video_info.bits / 8)) + (centerX - y)] = color;
+        framebuffer_virt_addr[(centerY - x) * (video_info.pitch / (video_info.bits / 8)) + (centerX - y)] = color;
     }
 }
 
@@ -172,14 +172,14 @@ void gfx_draw_filled_circle(int32_t centerX, int32_t centerY, int32_t radius, ui
 {
     int x, y;
 
-    if (centerX - radius < 0 || centerX + radius > vesa_video_info.width ||
-        centerY - radius < 0 || centerY + radius > vesa_video_info.height) {
+    if (centerX - radius < 0 || centerX + radius > video_info.width ||
+        centerY - radius < 0 || centerY + radius > video_info.height) {
         return;
     }
 
     uint32_t color = (r << 16) | (g << 8) | b;
 
-    uint32_t* framebuffer_virt_addr = ((uint32_t*)vesa_video_info.virt_addr);
+    uint32_t* framebuffer_virt_addr = ((uint32_t*)video_info.virt_addr);
 
     // Iterate through all possible (x, y) positions within the bounding box of the circle
     for (y = -radius; y <= radius; y++) {
@@ -187,16 +187,14 @@ void gfx_draw_filled_circle(int32_t centerX, int32_t centerY, int32_t radius, ui
             // Check if the current point (x, y) is inside or on the circle using the equation (x^2 + y^2 <= r^2)
             if ((x * x) + (y * y) <= (radius * radius)) {
                 // Set pixel at (centerX + x, centerY + y) to the color
-                framebuffer_virt_addr[(centerY + y) * vesa_video_info.width + (centerX + x)] = color;
+                framebuffer_virt_addr[(centerY + y) * (video_info.pitch / (video_info.bits / 8)) + (centerX + x)] = color;
             }
         }
     }
 }
 
 // Helpers
-static inline uint8_t gfx_unpack_pixel(
-    uint8_t byte,
-    uint32_t index)
+static inline uint8_t gfx_unpack_pixel(uint8_t byte,uint32_t index)
 {
 #if FONT_BPP == 1
 
@@ -220,8 +218,7 @@ static inline uint8_t gfx_unpack_pixel(
 #endif
 }
 
-static inline uint8_t gfx_expand_alpha(
-    uint8_t value)
+static inline uint8_t gfx_expand_alpha(uint8_t value)
 {
 #if FONT_BPP == 1
 
@@ -245,12 +242,7 @@ static inline uint8_t gfx_expand_alpha(
 }
 
 // Alpha Blend
-static inline uint32_t gfx_blend(
-    uint32_t dst,
-    uint8_t r,
-    uint8_t g,
-    uint8_t b,
-    uint8_t alpha)
+static inline uint32_t gfx_blend(uint32_t dst,uint8_t r,uint8_t g,uint8_t b,uint8_t alpha)
 {
     if (alpha == 255)
     {
@@ -312,7 +304,7 @@ int32_t gfx_draw_char(int32_t x, int32_t y, char c, uint32_t r, uint32_t g, uint
 
     // Framebuffer
     uint32_t *fb =
-        (uint32_t *)vesa_video_info.virt_addr;
+        (uint32_t *)video_info.virt_addr;
 
     // Render glyph
     for (uint32_t row = 0;
@@ -363,8 +355,8 @@ int32_t gfx_draw_char(int32_t x, int32_t y, char c, uint32_t r, uint32_t g, uint
             // Clipping
             if (px < 0 ||
                 py < 0 ||
-                px >= (int32_t)vesa_video_info.width ||
-                py >= (int32_t)vesa_video_info.height)
+                px >= (int32_t)video_info.width ||
+                py >= (int32_t)video_info.height)
             {
                 continue;
             }
@@ -372,7 +364,7 @@ int32_t gfx_draw_char(int32_t x, int32_t y, char c, uint32_t r, uint32_t g, uint
             // Destination framebuffer pixel
             uint32_t *dst =
                 &fb[
-                    py * vesa_video_info.width +
+                    py * (video_info.pitch / (video_info.bits / 8)) +
                     px
                 ];
 
@@ -394,13 +386,7 @@ int32_t gfx_draw_char(int32_t x, int32_t y, char c, uint32_t r, uint32_t g, uint
 }
 
 // Draw Text
-void gfx_draw_text(
-    int32_t x,
-    int32_t y,
-    const char *str,
-    uint32_t r,
-    uint32_t g,
-    uint32_t b)
+void gfx_draw_text(int32_t x,int32_t y,const char *str,uint32_t r,uint32_t g,uint32_t b)
 {
     int32_t cx = x;
 
@@ -430,8 +416,7 @@ void gfx_draw_text(
 }
 
 // Text Width
-int32_t gfx_text_width(
-    const char *str)
+int32_t gfx_text_width(const char *str)
 {
     int32_t width = 0;
 

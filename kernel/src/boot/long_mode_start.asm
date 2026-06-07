@@ -1,7 +1,6 @@
 %define GDT_KERNEL_DATA 0x10
 %define GDT_TSS         0x28 
 
-global long_mode_start
 extern kernel_premain
 extern kernel_main
 
@@ -20,7 +19,7 @@ extern tss64.rsp0
 
 section .text
 bits 64
-
+global long_mode_start
 long_mode_start:
     cli  ; Clear interrupts (for initialization phase)
 

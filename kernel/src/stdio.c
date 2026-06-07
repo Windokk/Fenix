@@ -18,7 +18,7 @@ static uint8_t fb_color_g = 255;
 static uint8_t fb_color_b = 255;
 
 void cursor_render(bool on){
-    if (!vesa_video_info.mapped) return;
+    if (!video_info.mapped) return;
     if(on)
         gfx_draw_filled_rectangle(cursor_px, cursor_py + GFX_LINE_HEIGHT - 10, CURSOR_W, 2, 255, 255, 255);
     else
@@ -58,10 +58,10 @@ void cursor_blink_tick(void) {
 }
 
 static void fb_scroll() {
-    if (!vesa_video_info.mapped) return;
-    uint32_t *fb = (uint32_t *)vesa_video_info.virt_addr;
-    uint32_t  w  = vesa_video_info.width;
-    uint32_t  h  = vesa_video_info.height;
+    if (!video_info.mapped) return;
+    uint32_t *fb = (uint32_t *)video_info.virt_addr;
+    uint32_t  w  = video_info.width;
+    uint32_t  h  = video_info.height;
     memmove(fb, fb + w * GFX_LINE_HEIGHT, w * (h - GFX_LINE_HEIGHT) * sizeof(uint32_t));
     memset(fb + w * (h - GFX_LINE_HEIGHT), 0, w * GFX_LINE_HEIGHT * sizeof(uint32_t));
     fb_cy = h - GFX_LINE_HEIGHT;
@@ -73,16 +73,16 @@ int32_t console_cursor_x(void) {
 }
 
 void console_clear(void) {
-    if (!vesa_video_info.mapped) return;
-    uint32_t *fb = (uint32_t *)vesa_video_info.virt_addr;
-    memset(fb, 0, vesa_video_info.width * vesa_video_info.height * sizeof(uint32_t));
+    if (!video_info.mapped) return;
+    uint32_t *fb = (uint32_t *)video_info.virt_addr;
+    memset(fb, 0, video_info.width * video_info.height * sizeof(uint32_t));
     fb_cx = 0;
     fb_cy = 0;
     cursor_sync();
 }
 
 void console_erase_chars(int32_t pixel_width) {
-    if (!vesa_video_info.mapped || pixel_width <= 0) return;
+    if (!video_info.mapped || pixel_width <= 0) return;
     fb_cx -= pixel_width;
     if (fb_cx < 0) fb_cx = 0;
     gfx_draw_filled_rectangle(fb_cx, fb_cy, pixel_width, GFX_LINE_HEIGHT, 0, 0, 0);
@@ -96,11 +96,11 @@ void fb_set_color(uint8_t r, uint8_t g, uint8_t b){
 }
 
 static void fb_putchar(char c) {
-    if (!vesa_video_info.mapped) return;
+    if (!video_info.mapped) return;
     if (c == '\n') {
         fb_cx = 0;
         fb_cy += GFX_LINE_HEIGHT;
-        if (fb_cy + GFX_LINE_HEIGHT > (int32_t)vesa_video_info.height)
+        if (fb_cy + GFX_LINE_HEIGHT > (int32_t)video_info.height)
             fb_scroll();
         return;
     }

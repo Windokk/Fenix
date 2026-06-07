@@ -3,7 +3,7 @@
 #include "memory/paging_frames.h"
 #include "memory/heap.h"
 
-#include "drivers/vesa.h"
+#include "drivers/video.h"
 
 #include "stdio.h"
 
@@ -120,7 +120,7 @@ extern pte_t   pte_krnluser[512];
 
 extern pdpe_t  pdpe_video[512];
 extern pde_t   pde_video[512];
-extern pte_t   pte_video[1024];
+extern pte_t   pte_video[2048];
 
 // P4[0x1C8] → 0xFFFFE40000000000  (dynamic MMIO mapping pool)
 // Used by uacpi_kernel_map() for arbitrary physical addresses not covered by

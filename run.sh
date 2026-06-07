@@ -1,2 +1,2 @@
 make
-qemu-system-x86_64 -cdrom build/fenix.iso -serial stdio -m 128
+qemu-system-x86_64 -cdrom build/fenix.iso -serial stdio -m 512

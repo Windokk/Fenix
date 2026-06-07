@@ -7,7 +7,7 @@
 #include "acpi/acpi.h"
 
 #include "drivers/keyboard.h"
-#include "drivers/vesa.h"
+#include "drivers/video.h"
 #include "drivers/rtc.h"
 
 #include "graphics/gfx.h"

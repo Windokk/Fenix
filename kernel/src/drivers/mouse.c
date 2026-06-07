@@ -6,7 +6,7 @@
 #include "drivers/ps2.h"
 
 #include "graphics/gfx.h"
-#include "drivers/vesa.h"
+#include "drivers/video.h"
 
 #include "stdio.h"
 
@@ -45,13 +45,13 @@ static int32_t  cursor_saved_x = -1;
 static int32_t  cursor_saved_y = -1;
 
 static void cursor_save_bg(int32_t x, int32_t y) {
-    uint32_t *fb = (uint32_t *)vesa_video_info.virt_addr;
+    uint32_t *fb = (uint32_t *)video_info.virt_addr;
     for (int row = 0; row < CURSOR_H; row++) {
         for (int col = 0; col < CURSOR_W; col++) {
             int px = x + col, py = y + row;
-            if (px >= 0 && px < vesa_video_info.width &&
-                py >= 0 && py < vesa_video_info.height)
-                cursor_bg[row * CURSOR_W + col] = fb[py * vesa_video_info.width + px];
+            if (px >= 0 && px < video_info.width &&
+                py >= 0 && py < video_info.height)
+                cursor_bg[row * CURSOR_W + col] = fb[py * (video_info.pitch / (video_info.bits / 8)) + px];
             else
                 cursor_bg[row * CURSOR_W + col] = 0;
         }
@@ -62,27 +62,27 @@ static void cursor_save_bg(int32_t x, int32_t y) {
 
 static void cursor_restore_bg(void) {
     if (cursor_saved_x < 0) return;
-    uint32_t *fb = (uint32_t *)vesa_video_info.virt_addr;
+    uint32_t *fb = (uint32_t *)video_info.virt_addr;
     for (int row = 0; row < CURSOR_H; row++) {
         for (int col = 0; col < CURSOR_W; col++) {
             int px = cursor_saved_x + col, py = cursor_saved_y + row;
-            if (px >= 0 && px < vesa_video_info.width &&
-                py >= 0 && py < vesa_video_info.height)
-                fb[py * vesa_video_info.width + px] = cursor_bg[row * CURSOR_W + col];
+            if (px >= 0 && px < video_info.width &&
+                py >= 0 && py < video_info.height)
+                fb[py * (video_info.pitch / (video_info.bits / 8)) + px] = cursor_bg[row * CURSOR_W + col];
         }
     }
 }
 
 static void cursor_draw(int32_t x, int32_t y) {
-    uint32_t *fb = (uint32_t *)vesa_video_info.virt_addr;
+    uint32_t *fb = (uint32_t *)video_info.virt_addr;
     for (int row = 0; row < CURSOR_H; row++) {
         for (int col = 0; col < CURSOR_W; col++) {
             uint8_t pixel = cursor_bitmap[row][col];
             if (pixel == 0) continue;
             int px = x + col, py = y + row;
-            if (px < 0 || px >= vesa_video_info.width ||
-                py < 0 || py >= vesa_video_info.height) continue;
-            fb[py * vesa_video_info.width + px] = (pixel == 1) ? 0xFFFFFF : 0x000000;
+            if (px < 0 || px >= video_info.width ||
+                py < 0 || py >= video_info.height) continue;
+            fb[py * (video_info.pitch / (video_info.bits / 8)) + px] = (pixel == 1) ? 0xFFFFFF : 0x000000;
         }
     }
 }
@@ -181,8 +181,8 @@ void mouse_handle_irq(void) {
 
         if (new_x < 0) new_x = 0;
         if (new_y < 0) new_y = 0;
-        if (new_x >= (int32_t)vesa_video_info.width)  new_x = vesa_video_info.width  - 1;
-        if (new_y >= (int32_t)vesa_video_info.height) new_y = vesa_video_info.height - 1;
+        if (new_x >= (int32_t)video_info.width)  new_x = video_info.width  - 1;
+        if (new_y >= (int32_t)video_info.height) new_y = video_info.height - 1;
 
         cursor_restore_bg();
 

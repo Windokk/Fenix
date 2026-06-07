@@ -2,7 +2,7 @@
 
 #include "common.h"
 
-#include "drivers/vesa.h"
+#include "drivers/video.h"
 
 #define GFX_LINE_HEIGHT 24
 
