@@ -2,7 +2,7 @@
 CCFLAGS = -Wall -Wextra -ffreestanding -nostdlib -mno-red-zone -g -mcmodel=large -m64 -fstack-protector-strong -DKERNEL_PROFILING -D__FENIX__
 ASFLAGS = -g
 LDFLAGS = -nostdlib -mcmodel=large
-NASM_FLAGS := -w-number-overflow -felf64 -g
+NASM_FLAGS := -w-number-overflow -g
 
 # Define file paths
 BUILD_DIR = build
@@ -19,7 +19,7 @@ FENIX_BIN = $(BUILD_DIR)/fenix.bin
 ISO_FILE = fenix.iso
 
 KERNEL_SRC = $(shell find kernel/src -type f -name "*.c")
-KERNEL_SRC += $(shell find kernel/src -type f -name "*.asm" -not -path "*/boot/*")
+KERNEL_SRC += $(shell find kernel/src -type f -name "*.asm" -not -path "*/boot/*" -not -name "ap_trampoline.asm" -not -name "ap_trampoline_blob.asm")
 KERNEL_OBJ = $(patsubst kernel/src/%,build/kernel/%.o,$(KERNEL_SRC))
 KERNEL_INC = $(shell find kernel/include -type f \( -name "*.h" \) )
 KERNEL_BUILD_DIR = $(BUILD_DIR)/kernel
@@ -46,17 +46,24 @@ NASM = nasm
 # Default target
 all: $(ISO_FILE)
 
+build/ap_trampoline.bin: kernel/src/interrupts/ap_trampoline.asm
+	@mkdir -p $(dir $@)
+	@$(NASM) $(NASM_FLAGS) -f bin -o $@ $<
 
-# Rule to build assembly files
+build/kernel/interrupts/ap_trampoline_blob.asm.o: kernel/src/interrupts/ap_trampoline_blob.asm build/ap_trampoline.bin
+	@mkdir -p $(dir $@)
+	@$(NASM) $(NASM_FLAGS) -felf64 -o $@ $<
+
+# Rule to build boot assembly files
 build/boot/%.o: kernel/src/boot/%.asm
 	@mkdir -p $(dir $@)
-	@$(NASM) $(NASM_FLAGS) $< -o $@
+	@$(NASM) $(NASM_FLAGS) -felf64 $< -o $@
 #
 
 # Rule to build kernel's assembly files
 $(KERNEL_ASM_O): kernel/src/%.asm
 	@mkdir -p "$(dir $@)"
-	@$(NASM) $(NASM_FLAGS) -o $@ $<
+	@$(NASM) $(NASM_FLAGS) -felf64 -o $@ $<
 #
 
 # Rule to build kernel's .c.o files
@@ -76,7 +83,7 @@ build/uacpi/%.c.o: kernel/vendor/uacpi/source/%.c
 
 
 # Rule to link boot.o and kernel.o to create fenix.bin
-$(FENIX_BIN): $(KERNEL_OBJ) $(BOOT_ASM_OBJ) $(UACPI_OBJ)
+$(FENIX_BIN): $(KERNEL_OBJ) $(BOOT_ASM_OBJ) $(UACPI_OBJ) build/kernel/interrupts/ap_trampoline_blob.asm.o
 	@$(CC) -I$(INCDIR) $(LDFLAGS) -T linker.ld -o $@ $^
 	@echo "Built fenix.bin"
 	

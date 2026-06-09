@@ -9,7 +9,7 @@ extern p3_table
 extern p2_table
 extern p1_table
 extern kernel_stack_top
-extern gdt64.pointer
+extern gdt64_pointer
 extern gdt64.kernel_code
 
 section .text
@@ -42,7 +42,7 @@ start_bios32:
     call enable_paging
 
     ; load the 64-bit GDT
-    lgdt [(gdt64.pointer - KERNEL_VMA)]
+    lgdt [(gdt64_pointer - KERNEL_VMA)]
 
     ; jump to refresh RIP and new GDT
     jmp gdt64.kernel_code:(long_mode_start - KERNEL_VMA)

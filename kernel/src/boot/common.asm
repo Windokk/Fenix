@@ -5,7 +5,8 @@
 section .data
 global gdt64
 global gdt64.tss
-global gdt64.pointer
+global gdt64_pointer
+gdt64_pointer equ gdt64.pointer
 global gdt64.kernel_code
 gdt64:                           ; Global Descriptor Table (64-bit).
 align 8

@@ -10,7 +10,7 @@ pde_t   pde_user[512] __attribute__((aligned(4096)));
 pte_t   pte_user[512] __attribute__((aligned(4096)));
 
 pdpe_t  pdpe_krnluser[512] __attribute__((aligned(4096)));
-pde_t  pde_krnluser[512] __attribute__((aligned(4096)));
+pde_t   pde_krnluser[512] __attribute__((aligned(4096)));
 pte_t   pte_krnluser[512] __attribute__((aligned(4096)));
 
 pdpe_t  pdpe_video[512] __attribute__((aligned(4096)));
@@ -25,6 +25,7 @@ pdpe_t  pdpe_apic[512] __attribute__((aligned(4096)));
 pde_t   pde_apic[512] __attribute__((aligned(4096)));
 pte_t   pte_apic[512] __attribute__((aligned(4096)));
 
+
 static inline uint64_t x86_get_cr3(void) {
     uint64_t rv;
 
@@ -33,6 +34,11 @@ static inline uint64_t x86_get_cr3(void) {
         : "=r" (rv));
     return rv;
 }
+
+uint64_t get_cr3(){
+    return x86_get_cr3();
+}
+
 static inline void x86_set_cr3(uint64_t cr3)
 {
   asm volatile (
@@ -47,6 +53,9 @@ static inline void x86_tlb_flush_all(void) {
   x86_set_cr3(x86_get_cr3());
 }
 
+void tlb_flush(){
+    x86_tlb_flush_all();
+}
 
 static void init_paging_kernel() {
 
@@ -118,11 +127,15 @@ static void init_paging_video() {
   video_info.mapped = true;
 }
 
+extern uint8_t ap_trampoline_start[];
+extern uint8_t ap_trampoline_end[];
+
 void init_paging(){
     init_paging_kernel();
     init_paging_user();
     init_paging_video();
     x86_set_cr3(TO_PHYS_U64(pml4e));
+    memcpy((void*)KERNEL_VMA + 0x8000, ap_trampoline_start, ap_trampoline_end - ap_trampoline_start);
 }
 
 static uint8_t mmio_bitmap[MMIO_POOL_PAGES / 8];  /* one bit per page */

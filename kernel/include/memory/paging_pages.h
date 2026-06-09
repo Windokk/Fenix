@@ -154,3 +154,6 @@ void  init_paging_mmio_pool(void);
 // Returns NULL if the pool is exhausted.
 void *paging_map_mmio(uint64_t phys, uint64_t size);
 void  paging_unmap_mmio(void *virt, uint64_t size);
+
+uint64_t get_cr3();
+void tlb_flush();

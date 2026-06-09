@@ -48,3 +48,19 @@ void lapic_timer_init(void){
 
 void lapic_timer_handle_irq(void){
 }
+
+void wait_ms(int duration) {
+    uint32_t ticks   = (uint32_t)duration * lapic_ticks_per_ms;
+    uint32_t period  = lapic_ticks_per_ms;
+    uint32_t prev    = lapic_read(LAPIC_TCCR);
+    uint32_t elapsed = 0;
+
+    while (elapsed < ticks) {
+        uint32_t cur   = lapic_read(LAPIC_TCCR);
+        uint32_t delta = (cur <= prev)
+            ? (prev - cur)             // normal countdown
+            : (prev + (period - cur)); // wrap: counter reloaded
+        elapsed += delta;
+        prev = cur;
+    }
+}

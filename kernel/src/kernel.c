@@ -24,6 +24,8 @@
 
 #include "profiling/selftest/selftest.h"
 
+#include "smp/smp.h"
+
 // Saved physical pointer to the multiboot2 info structure.
 // init_paging() maps the first 8 MB at VMA, so acpi_init() can access it
 // via TO_VMA_U64 as long as GRUB placed it below 8 MB (always true in practice).
@@ -164,6 +166,8 @@ void kernel_premain(unsigned long magic, multiboot_info_t* mbi_phys) {
     rtc_init();
 
     selftest_run_all();
+
+    smp_start_all();
 
     enable_interrupts();
 }

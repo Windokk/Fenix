@@ -63,12 +63,6 @@ static const char *exception_strs[] = {
         "#CP: Control-Protection Exception",
 };
 
-inline static void load_idt() {
-    idt_reg.base = (uint64_t) &idt;
-    idt_reg.length = IDT_ENTRIES * sizeof(idt_gate_t) - 1;
-    __asm__("lidt %0" : : "m"(idt_reg));
-}
-
 static void config_idt_vector(uint16_t n, uint64_t handler) {
     idt[n].selector = 0x08;
     idt[n].ptr_low  = (uint16_t) handler;
@@ -135,6 +129,16 @@ void idt_init() {
     load_idt();
 }
 
+inline static void load_idt_internal() {
+    idt_reg.base = (uint64_t) &idt;
+    idt_reg.length = IDT_ENTRIES * sizeof(idt_gate_t) - 1;
+    __asm__("lidt %0" : : "m"(idt_reg));
+}
+
+void load_idt()
+{
+    load_idt_internal();
+}
 
 void interrupt_handler(isr_ctx_t *regs) {
 
@@ -173,7 +177,7 @@ void interrupt_handler(isr_ctx_t *regs) {
     }
     else {
         disable_interrupts();
-        KLOG_ERROR("IDT","Error: %s, Error Code: 0x%x", exception_strs[int_no], regs->error_code);
+        KLOG_ERROR("IDT","Error: %s, Error Code: 0x%x , %llX", exception_strs[int_no], regs->error_code, regs->rip);
         for (;;) {
             asm volatile ("hlt");
         }

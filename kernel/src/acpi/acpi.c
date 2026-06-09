@@ -154,6 +154,29 @@ void acpi_init(void *mbi_phys) {
                     g_acpi.lapic_phys = ovr->address;
                     break;
                 }
+                case ACPI_MADT_ENTRY_TYPE_LAPIC: {
+                    struct acpi_madt_lapic *lapic = (struct acpi_madt_lapic *)e;
+                    bool enabled = lapic->flags & ACPI_PIC_ENABLED;
+                    bool can_enable = lapic->flags & ACPI_PIC_ONLINE_CAPABLE;
+                    if ((enabled || can_enable) && g_acpi.cpu_count < ACPI_MAX_CPUS) {
+                        g_acpi.cpus[g_acpi.cpu_count].apic_id = lapic->id;
+                        g_acpi.cpus[g_acpi.cpu_count].uid     = lapic->uid;
+                        g_acpi.cpu_count++;
+                    }
+                    break;
+                }
+                case ACPI_MADT_ENTRY_TYPE_LOCAL_X2APIC: {
+                    struct acpi_madt_x2apic *x2 = (struct acpi_madt_x2apic *)e;
+                    bool enabled = x2->flags & ACPI_PIC_ENABLED;
+                    bool can_enable = x2->flags & ACPI_PIC_ONLINE_CAPABLE;
+                    if ((enabled || can_enable) && x2->id != 0xFFFFFFFF
+                        && g_acpi.cpu_count < ACPI_MAX_CPUS) {
+                        g_acpi.cpus[g_acpi.cpu_count].apic_id = x2->id;
+                        g_acpi.cpus[g_acpi.cpu_count].uid     = x2->uid;
+                        g_acpi.cpu_count++;
+                    }
+                    break;
+                }
             }
             e = (struct acpi_entry_hdr *)((uint8_t *)e + e->length);
         }

@@ -68,8 +68,7 @@ static uint16_t iso_flags_for(uint8_t isa_irq) {
 }
 
 // Returns which IOAPIC owns a given GSI and its local index within that IOAPIC.
-static bool gsi_to_ioapic(uint32_t gsi,
-                           uint32_t *out_ioapic_idx, uint8_t *out_local) {
+static bool gsi_to_ioapic(uint32_t gsi, uint32_t *out_ioapic_idx, uint8_t *out_local) {
     for (uint32_t i = 0; i < g_acpi.ioapic_count; i++) {
         uint32_t base  = g_acpi.ioapics[i].gsi_base;
         volatile uint32_t *b = ioapic_base_for(i);
@@ -85,9 +84,7 @@ static bool gsi_to_ioapic(uint32_t gsi,
 
 // ─── Redirection entry helpers ────────────────────────────────────────────────
 
-static void ioapic_set_redirect(volatile uint32_t *base, uint8_t local_idx,
-                                 uint8_t vector, uint8_t polarity, uint8_t trigger,
-                                 uint8_t dest_apic_id, bool masked) {
+static void ioapic_set_redirect(volatile uint32_t *base, uint8_t local_idx, uint8_t vector, uint8_t polarity, uint8_t trigger, uint8_t dest_apic_id, bool masked) {
     uint32_t lo = (uint32_t)vector
                 | ((polarity & 1) << 13)   // active-low if 1
                 | ((trigger  & 1) << 15)   // level if 1
@@ -242,4 +239,17 @@ void apic_init(void) {
 
     KLOG_INFO("APIC","Active - LAPIC + %u IOAPIC(s) configured",
            g_acpi.ioapic_count);
+}
+
+void lapic_send_init(uint8_t apic_id) {
+    lapic_write(LAPIC_ICR_HI, (uint32_t)apic_id << 24);
+    lapic_write(LAPIC_ICR_LO, 0x00000500);
+    // wait for delivery of idle status
+    while (lapic_read(LAPIC_ICR_LO) & (1 << 12)) {}
+}
+
+void lapic_send_sipi(uint8_t apic_id, uint8_t page) {
+    lapic_write(LAPIC_ICR_HI, (uint32_t)apic_id << 24);
+    lapic_write(LAPIC_ICR_LO, 0x00000600 | page);
+    while (lapic_read(LAPIC_ICR_LO) & (1 << 12)) {}
 }

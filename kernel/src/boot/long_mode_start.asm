@@ -11,7 +11,7 @@ extern p1_table
 extern kernel_stack_top
 extern gdt64
 extern gdt64.tss
-extern gdt64.pointer
+extern gdt64_pointer
 extern tss64
 extern tss64.rsp0
 
@@ -30,7 +30,7 @@ long_mode_start:
     
 flush_rip:
 
-    mov rax, gdt64.pointer
+    mov rax, gdt64_pointer
     lgdt [rax]
 
     mov ax, GDT_KERNEL_DATA

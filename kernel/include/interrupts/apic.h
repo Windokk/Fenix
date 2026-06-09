@@ -13,7 +13,7 @@
 //   ...up to ACPI_MAX_IOAPICS IOAPICs
 
 #define APIC_MMIO_BASE     0xFFFFF00000000000ULL
-#define LAPIC_VIRT_BASE    (APIC_MMIO_BASE + 0x0000ULL)
+#define LAPIC_VIRT_BASE    (APIC_MMIO_BASE + 0x0000ULL)  // BSP CPU LAPIC ADDRESS
 #define IOAPIC_VIRT_BASE   (APIC_MMIO_BASE + 0x1000ULL)  // IOAPIC #0
 #define IOAPIC_VIRT_STRIDE 0x1000ULL                     // 4 KB per IOAPIC
 
@@ -48,6 +48,11 @@
 // PM Timer flags
 #define LAPIC_TIMER_PERIODIC (1 << 17)
 #define LAPIC_TIMER_ONESHOT (0)
+
+#define ICR_INIT   0x00000500u   // delivery=INIT, edge, deassert
+#define ICR_SIPI(page) (0x00000600u | ((page) & 0xFF))  // delivery=SIPI
+
+#define AP_STACK_SIZE 4096 * 4
 
 // ─── I/O APIC register indices ────────────────────────────────────────────────
 //
@@ -95,3 +100,7 @@ uint32_t acpi_irq_to_gsi(uint8_t isa_irq);
 extern uint32_t lapic_read(uint32_t reg);
 
 extern void lapic_write(uint32_t reg, uint32_t val);
+
+extern void lapic_send_init(uint8_t apic_id);
+
+extern void lapic_send_sipi(uint8_t apic_id, uint8_t page);

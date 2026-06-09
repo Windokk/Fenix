@@ -19,6 +19,8 @@
 #define ISO_TRIGGER_EDGE      0x4
 #define ISO_TRIGGER_LEVEL     0xC
 
+#define ACPI_MAX_CPUS 256
+
 typedef struct {
     uint8_t  ioapic_id;
     uint64_t phys_addr;
@@ -30,6 +32,11 @@ typedef struct {
     uint32_t gsi;
     uint16_t flags;
 } acpi_iso_t;
+
+typedef struct {
+    uint32_t apic_id;  // hardware ID (for SIPI)
+    uint32_t uid;      // ACPI UID (to link to other ACPI tables)
+} acpi_cpu_info_t;
 
 typedef struct {
     bool     initialized;
@@ -70,6 +77,11 @@ typedef struct {
     // PCIe ECAM (from MCFG)
     struct acpi_mcfg_allocation mcfg[ACPI_MAX_MCFG];
     uint32_t     mcfg_count;
+
+    //CPUs
+    uint32_t        cpu_count;
+    acpi_cpu_info_t cpus[ACPI_MAX_CPUS];
+
 } acpi_state_t;
 
 extern acpi_state_t g_acpi;

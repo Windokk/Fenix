@@ -5,7 +5,6 @@ extern p3_table
 extern p2_table
 extern p1_table
 extern kernel_stack_top
-extern gdt64.pointer
 extern gdt64.kernel_code
 
 %define KERNEL_VMA          0xFFFF800000000000
