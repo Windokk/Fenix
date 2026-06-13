@@ -5,6 +5,8 @@
 #include <string.h>
 #include "drivers/serial.h"
 
+#include "cpu/smp.h"
+
 void    printf(const char* format, ...);
 char    toupper(char c);
 void    to_hex(unsigned int value, char* buffer, bool uppercase);
@@ -20,3 +22,5 @@ void cursor_hide(void);
 extern void cursor_blink_tick(void);
 
 void fb_set_color(uint8_t r, uint8_t g, uint8_t b);
+
+extern spinlock_t fb_lock;

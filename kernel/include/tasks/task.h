@@ -16,29 +16,28 @@ typedef enum {
 } task_state_t;
 
 typedef struct task_struct {
-    uint64_t     rsp;          /* saved stack pointer — must stay first (asm depends on offset 0) */
+    uint64_t     rsp;          // saved stack pointer - must stay first (asm depends on offset 0)
     task_state_t state;
     uint32_t     id;
     char         name[32];
-    uint8_t     *stack;        /* heap-allocated stack base */
-    uint64_t     wakeup_tick;  /* non-zero: wake when rtc_get_ticks() >= this value */
+    uint8_t     *stack;        // heap-allocated stack base
+    uint64_t     wakeup_tick;  // non-zero: wake when rtc_get_ticks() >= this value
 } task_t;
 
-extern task_t *current_task;
+extern void idle_task(void);
 
-extern pool_t* stack_pool;
-
-void    task_init(void);
-task_t *task_create(void (*fn)(void), const char *name);
-task_t *task_locate(const char *name);
-void    task_yield(void);
-void    task_block(void);
-void    task_unblock(task_t *task);
-void    task_exit(void);
-void    task_sleep(uint64_t ticks);      /* block for N RTC ticks then auto-wake */
-void    task_tick_update(void);          /* called from timer ISR to wake sleeping tasks */
-void    scheduler_start(void);
-void    task_canary_check_all(void);     /* check every live task's stack canary */
+extern void    task_init_local(void);
+extern task_t *task_create_local(void (*fn)(void), const char *name);
+extern task_t *task_locate_local(const char *name);
+extern void    task_yield_local(void);
+extern void    task_block_local(void);
+extern void    task_unblock_local(task_t *task);
+extern void    task_exit_local(void);
+extern void    task_assign_local(task_t *t, uint32_t cpu_id);
+extern void    task_sleep_local(uint64_t ticks);      /* block for N RTC ticks then auto-wake */
+extern void    task_tick_update_local(void);          /* called from timer ISR to wake sleeping tasks */
+extern void    scheduler_start_local(void);
+extern void    task_canary_check_all_local(void);     /* check every live task's stack canary */
 
 // ─── Mutex ────────────────────────────────────────────────────────────────────
 

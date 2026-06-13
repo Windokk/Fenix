@@ -16,6 +16,8 @@ acpi_state_t g_acpi                  = {0};
 uint64_t     g_rsdp_phys             = 0;
 uint8_t*     g_rsdp_virt             = 0;
 
+bool g_lapic_ready = false;
+
 // ─── Multiboot2 tag structures for ACPI ──────────────────────────────────────
 
 typedef struct {

@@ -41,13 +41,6 @@ vector%1:
     iretq
 %endmacro
 
-%macro isr_stub_ipi 2
-global vector%1
-vector%1:
-    cli
-    push qword %1
-    jmp isr_common_stub
-%endmacro
 
 isr_common_stub:
     ; save registers
@@ -156,3 +149,5 @@ isr_stub_irq 43
 isr_stub_irq 44
 
 isr_stub_irq 64
+
+isr_stub_irq 240

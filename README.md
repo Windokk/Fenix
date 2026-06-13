@@ -92,13 +92,13 @@
 - [x] Add specific loader for efi64 : starting in long mode, setting up paging, jumping to long_mode_start
 - [x] Modify grub.cfg to assure efi video mode support
 
-### 0.7 - SMP & CPU Topology : Done ■■■■■▢▢▢▢▢ 50%
+### 0.7 - SMP & CPU Topology : Done ■■■■■■■■■■ 100%
 - [x] ACPI CPU enumeration from MADT (all enabled LAPICs)
 - [x] AP startup sequence (INIT–SIPI–SIPI via LAPIC ICR)
 - [x] Per-CPU GDT / TSS / IDT and stack
-- [ ] Per-CPU scheduler queues + inter-processor IPI for load balance
-- [ ] Spinlock primitive (distinct from mutex — for IRQ-context use)
-- [ ] `cpuid`-based feature detection (XSAVE, invariant TSC, etc.)
+- [x] Per-CPU scheduler queues + inter-processor IPI for load balance
+- [x] Spinlock primitive (distinct from mutex - for IRQ-context use)
+- [x] `cpuid`-based feature detection
 
 ### 0.8 - PCI / PCIe Enumeration : Done ▢▢▢▢▢▢▢▢▢▢ 0%
 - [ ] ECAM-based PCIe config space walker

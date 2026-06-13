@@ -24,7 +24,8 @@
 
 #include "profiling/selftest/selftest.h"
 
-#include "smp/smp.h"
+#include "cpu/smp.h"
+#include "cpu/cpu_features.h"
 
 // Saved physical pointer to the multiboot2 info structure.
 // init_paging() maps the first 8 MB at VMA, so acpi_init() can access it
@@ -40,12 +41,6 @@ void HALT_AND_CATCH_FIRE(const char *fmt, ...) {
     while(1) {}
 }
 
-static void idle_task(void) {
-    while (1) {
-        x86_hlt();
-        task_yield();
-    }
-}
 memory_infos_t parse_multiboot2_memory(multiboot_info_t *mbi) {
     multiboot_tag_t *tag;
     
@@ -119,6 +114,10 @@ void kernel_premain(unsigned long magic, multiboot_info_t* mbi_phys) {
 
     init_heap();
 
+    KLOG_INFO("KERNEL", "CPU features detection");
+
+    cpu_get_features();
+
     KLOG_INFO("KERNEL", "ACPI Initialization");
 
     acpi_init(g_mbi_phys);
@@ -167,6 +166,10 @@ void kernel_premain(unsigned long magic, multiboot_info_t* mbi_phys) {
 
     selftest_run_all();
 
+    task_init_local();
+    task_create_local(idle_task, "idle");
+    KLOG_INFO("SMP", "Task system ready for AP %u", cpu_self_id());
+
     smp_start_all();
 
     enable_interrupts();
@@ -174,12 +177,6 @@ void kernel_premain(unsigned long magic, multiboot_info_t* mbi_phys) {
 
 void kernel_main()
 {
-    task_init();
-    task_create(shell_task, "shell");
-    task_create(idle_task,  "idle");
-
-    KLOG_INFO("KERNEL", "Task system ready");
-
-    scheduler_start();
+    scheduler_start_local();
     /* never reached */
 }

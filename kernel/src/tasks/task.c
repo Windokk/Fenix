@@ -3,59 +3,67 @@
 #include "memory/heap.h"
 #include "string.h"
 #include "stdio.h"
+#include "cpu/smp.h"
 #include "interrupts/idt.h"
+#include "interrupts/apic.h"
+#include "kernel.h"
 
 /* Defined in task_switch.asm */
 extern void task_switch(uint64_t *old_rsp, uint64_t new_rsp);
 extern void task_trampoline();
 
-task_t *current_task = NULL;
-pool_t* stack_pool = NULL;
-
-static task_t   task_table[MAX_TASKS];
-static uint32_t task_count = 0;
-static uint32_t next_id    = 0;
-
-void task_init(void) {
-    memset(task_table, 0, sizeof(task_table));
-    task_count = 0;
-    next_id    = 0;
-    current_task = NULL;
-
-    void* backing = kmalloc_aligned(MAX_TASKS * TASK_STACK_SIZE, 16);
-    stack_pool = (pool_t*)kmalloc(sizeof(pool_t));
-    pool_init(stack_pool, backing, MAX_TASKS * TASK_STACK_SIZE, TASK_STACK_SIZE);
+void idle_task(void) {
+    while (1) {
+        x86_hlt();
+        task_yield_local();
+    }
 }
 
-task_t *task_create(void (*fn)(void), const char *name) {
+void task_init_local(void) {
+    uint32_t cpu_id = cpu_self_id();
+    memset(cpu_local[cpu_id].run_queue, 0, sizeof(cpu_local[cpu_id].run_queue));
+    cpu_local[cpu_id].run_count = 0;
+    cpu_local[cpu_id].next_id    = 0;
+    cpu_local[cpu_id].current_task = NULL;
+
+    void* backing = kmalloc_aligned(MAX_TASKS * TASK_STACK_SIZE, 16);
+    cpu_local[cpu_id].stack_pool = (pool_t*)kmalloc(sizeof(pool_t));
+    pool_init(cpu_local[cpu_id].stack_pool, backing, MAX_TASKS * TASK_STACK_SIZE, TASK_STACK_SIZE);
+}
+
+task_t *task_create_local(void (*fn)(void), const char *name) {
+    uint32_t cpu_id = cpu_least_loaded();
+
+    uint32_t run_count = cpu_local[cpu_id].run_count;
+
     // Prefer reusing a dead slot so the table doesn't fill up permanently.
     task_t *t = NULL;
-    for (uint32_t i = 0; i < task_count; i++) {
-        if (task_table[i].state == TASK_DEAD) {
-            if (task_table[i].stack) {
-                pool_free(stack_pool, task_table[i].stack);
-                task_table[i].stack = NULL;
+    for (uint32_t i = 0; i < cpu_local[cpu_id].run_count; i++) {
+        if (cpu_local[cpu_id].run_queue[i].state == TASK_DEAD) {
+            if (cpu_local[cpu_id].run_queue[i].stack) {
+                pool_free(cpu_local[cpu_id].stack_pool, cpu_local[cpu_id].run_queue[i].stack);
+                cpu_local[cpu_id].run_queue[i].stack = NULL;
             }
-            t = &task_table[i];
+            t = &cpu_local[cpu_id].run_queue[i];
             break;
         }
     }
     if (!t) {
-        if (task_count >= MAX_TASKS) {
+        if (cpu_local[cpu_id].run_count >= MAX_TASKS) {
             KLOG_WARN("TASK","Max tasks reached");
             return NULL;
         }
-        t = &task_table[task_count++];
+        t = &cpu_local[cpu_id].run_queue[cpu_local[cpu_id].run_count++];
     }
 
-    t->id          = next_id++;
+    t->id          = cpu_local[cpu_id].next_id++;
     t->state       = TASK_READY;
     t->wakeup_tick = 0;
 
     strncpy(t->name, name, sizeof(t->name) - 1);
     t->name[sizeof(t->name) - 1] = '\0';
 
-    t->stack = pool_alloc(stack_pool);
+    t->stack = pool_alloc(cpu_local[cpu_id].stack_pool);
     if (!t->stack) {
         KLOG_ERROR("TASK","Failed to allocate stack for '%s'", name);
         t->state = TASK_DEAD;
@@ -73,7 +81,7 @@ task_t *task_create(void (*fn)(void), const char *name) {
     *   [ task_trampoline ]  <-- ret target inside task_switch
     *   [ rbx = fn ] [ rbp = 0 ] [ r12 = 0 ] [ r13 = 0 ] [ r14 = 0 ] [ r15 = 0 ]  <-- t->rsp
     */
-    *--sp = (uint64_t)task_exit;
+    *--sp = (uint64_t)task_exit_local;
     *--sp = (uint64_t)task_trampoline;
     *--sp = (uint64_t)fn;/* rbx <==> fn */
     *--sp = 0; /* rbp */
@@ -83,27 +91,45 @@ task_t *task_create(void (*fn)(void), const char *name) {
     *--sp = 0; /* r15 */
 
     t->rsp = (uint64_t)sp;
+
+    if(run_count == 0){
+        int lapic_id = g_acpi.cpus[cpu_id].apic_id;
+        lapic_send_ipi(lapic_id, IPI_RESCHEDULE);
+    }
+
     return t;
 }
 
-task_t *task_locate(const char *name) {
-    for (uint32_t i = 0; i < task_count; i++) {
-        if (strncmp(task_table[i].name, name, sizeof(task_table[i].name)) == 0)
-            return &task_table[i];
+task_t *task_locate_local(const char *name) {
+    uint32_t cpu_id = cpu_self_id();
+    for (uint32_t i = 0; i < cpu_local[cpu_id].run_count; i++) {
+        if (strncmp(cpu_local[cpu_id].run_queue[i].name, name, sizeof(cpu_local[cpu_id].run_queue[i].name)) == 0)
+            return &cpu_local[cpu_id].run_queue[i];
     }
     return NULL;
 }
 
 /* Round-robin: pick the next READY task after the current one. */
-static task_t *scheduler_next(void) {
-    uint32_t start = (uint32_t)(current_task - task_table + 1) % task_count;
-    for (uint32_t i = 0; i < task_count; i++) {
-        uint32_t idx = (start + i) % task_count;
-        if (task_table[idx].state == TASK_READY ||
-            task_table[idx].state == TASK_RUNNING) {
-            return &task_table[idx];
+static task_t *scheduler_next_local(void) {
+    uint32_t cpu_id = cpu_self_id();
+    lock(&cpu_local[cpu_id].lock);
+    if(cpu_local[cpu_id].run_count == 0){
+        unlock(&cpu_local[cpu_id].lock);
+        return NULL;
+    }
+
+    uint32_t start = (uint32_t)(cpu_local[cpu_id].current_task - cpu_local[cpu_id].run_queue + 1) % cpu_local[cpu_id].run_count;
+    for (uint32_t i = 0; i < cpu_local[cpu_id].run_count; i++) {
+        uint32_t idx = (start + i) % cpu_local[cpu_id].run_count;
+        if (cpu_local[cpu_id].run_queue[idx].state == TASK_READY ||
+            cpu_local[cpu_id].run_queue[idx].state == TASK_RUNNING) {
+            unlock(&cpu_local[cpu_id].lock);
+            return &cpu_local[cpu_id].run_queue[idx];
         }
     }
+
+    unlock(&cpu_local[cpu_id].lock);
+
     return NULL;
 }
 
@@ -112,13 +138,16 @@ static inline void canary_check(task_t *t) {
         HALT_AND_CATCH_FIRE("Stack overflow detected in task '%s' (id=%u)", t->name, t->id);
 }
 
-void task_yield(void) {
+void task_yield_local(void) {
     uint64_t rflags;
     asm volatile("pushfq; pop %0; cli" : "=r"(rflags));
 
-    task_t *prev = current_task;
+    uint32_t cpu_id = cpu_self_id();
+
+    task_t *prev = cpu_local[cpu_id].current_task;
+    if (!prev) { enable_interrupts(); return; }
     canary_check(prev);
-    task_t *next = scheduler_next();
+    task_t *next = scheduler_next_local();
 
     if (!next || next == prev){
         if(rflags & (1ULL << 9))
@@ -130,7 +159,7 @@ void task_yield(void) {
         prev->state = TASK_READY;
 
     next->state  = TASK_RUNNING;
-    current_task = next;
+    cpu_local[cpu_id].current_task = next;
 
     task_switch(&prev->rsp, next->rsp);
 
@@ -138,50 +167,62 @@ void task_yield(void) {
         enable_interrupts();
 }
 
-void task_block(void) {
-    current_task->state = TASK_BLOCKED;
-    task_yield();
+void task_block_local(void) {
+    uint32_t cpu_id = cpu_self_id();
+    cpu_local[cpu_id].current_task->state = TASK_BLOCKED;
+    task_yield_local();
 }
 
-void task_unblock(task_t *task) {
+void task_unblock_local(task_t *task) {
     if (task && task->state == TASK_BLOCKED)
         task->state = TASK_READY;
 }
 
-void task_exit(void) {
-    canary_check(current_task);
-    KLOG_INFO("TASK","'%s' exited", current_task->name);
+void task_exit_local(void) {
+    uint32_t cpu_id = cpu_self_id();
+    canary_check(cpu_local[cpu_id].current_task);
+    KLOG_INFO("TASK","'%s' exited", cpu_local[cpu_id].current_task->name);
     // Stack is freed when this slot is reused by task_create().
-    current_task->state = TASK_DEAD;
-    task_yield();
+    cpu_local[cpu_id].current_task->state = TASK_DEAD;
+    task_yield_local();
     while (1) {}
+}
+
+void task_assign_local(task_t *t, uint32_t cpu_id){
+    lock(&cpu_local[cpu_id].lock);
+    cpu_local[cpu_id].run_queue[cpu_local[cpu_id].run_count] = *t;
+    cpu_local[cpu_id].run_count++;
+    unlock(&cpu_local[cpu_id].lock);
 }
 
 // ─── Timed sleep ──────────────────────────────────────────────────────────────
 
-void task_sleep(uint64_t ticks) {
-    current_task->wakeup_tick = rtc_get_ticks() + ticks;
-    task_block();
+void task_sleep_local(uint64_t ticks) {
+    uint32_t cpu_id = cpu_self_id();
+    cpu_local[cpu_id].current_task->wakeup_tick = rtc_get_ticks() + ticks;
+    task_block_local();
 }
 
 /* Called from the timer ISR (with EOI already sent) to wake sleeping tasks. */
-void task_tick_update(void) {
+void task_tick_update_local(void) {
+    uint32_t cpu_id = cpu_self_id();
     uint64_t now = rtc_get_ticks();
-    for (uint32_t i = 0; i < task_count; i++) {
-        task_t *t = &task_table[i];
+    for (uint32_t i = 0; i < cpu_local[cpu_id].run_count; i++) {
+        task_t *t = &cpu_local[cpu_id].run_queue[i];
         if (t->state == TASK_BLOCKED && t->wakeup_tick > 0 &&
             now >= t->wakeup_tick) {
             t->wakeup_tick = 0;
-            task_unblock(t);
+            task_unblock_local(t);
         }
     }
 }
 
 // ─── Stack canary audit ───────────────────────────────────────────────────────
 
-void task_canary_check_all(void) {
-    for (uint32_t i = 0; i < task_count; i++) {
-        task_t *t = &task_table[i];
+void task_canary_check_all_local(void) {
+    uint32_t cpu_id = cpu_self_id();
+    for (uint32_t i = 0; i < cpu_local[cpu_id].run_count; i++) {
+        task_t *t = &cpu_local[cpu_id].run_queue[i];
         if (t->state != TASK_DEAD && t->stack)
             canary_check(t);
     }
@@ -189,12 +230,13 @@ void task_canary_check_all(void) {
 
 // ─── Scheduler start ──────────────────────────────────────────────────────────
 
-void scheduler_start(void) {
-    if (task_count == 0) return;
-    current_task = &task_table[0];
-    current_task->state = TASK_RUNNING;
+void scheduler_start_local(void) {
+    uint32_t cpu_id = cpu_self_id();
+    if (cpu_local[cpu_id].run_count == 0) return;
+    cpu_local[cpu_id].current_task = &cpu_local[cpu_id].run_queue[0];
+    cpu_local[cpu_id].current_task->state = TASK_RUNNING;
     uint64_t dummy;
-    task_switch(&dummy, current_task->rsp);
+    task_switch(&dummy, cpu_local[cpu_id].current_task->rsp);
     /* never returns */
 }
 
@@ -207,12 +249,13 @@ void mutex_init(mutex_t *m) {
 }
 
 void mutex_lock(mutex_t *m) {
+    uint32_t cpu_id = cpu_self_id();
     while (__sync_lock_test_and_set(&m->locked, 1)) {
         /* Lock is held — yield to let the holder run, then retry. */
-        if (current_task) task_yield();
+        if (cpu_local[cpu_id].current_task) task_yield_local();
         else asm volatile("pause");
     }
-    m->owner = current_task;
+    m->owner = cpu_local[cpu_id].current_task;
 }
 
 void mutex_unlock(mutex_t *m) {
@@ -227,6 +270,7 @@ void sem_init(semaphore_t *s, int32_t initial) {
 }
 
 void sem_wait(semaphore_t *s) {
+    uint32_t cpu_id = cpu_self_id();
     while (1) {
         int32_t old = __atomic_load_n(&s->count, __ATOMIC_ACQUIRE);
         if (old > 0 &&
@@ -234,7 +278,7 @@ void sem_wait(semaphore_t *s) {
                                         false, __ATOMIC_ACQ_REL,
                                         __ATOMIC_RELAXED))
             return;
-        if (current_task) task_yield();
+        if (cpu_local[cpu_id].current_task) task_yield_local();
         else asm volatile("pause");
     }
 }

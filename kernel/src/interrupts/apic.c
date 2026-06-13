@@ -215,6 +215,8 @@ void apic_init(void) {
     // Map LAPIC + IOAPIC registers into the kernel's virtual address space
     init_paging_apic(g_acpi.lapic_phys, ioapic_phys, g_acpi.ioapic_count);
 
+    g_lapic_ready = true;
+
     lapic_init();
 
     disable_interrupts();
@@ -251,5 +253,11 @@ void lapic_send_init(uint8_t apic_id) {
 void lapic_send_sipi(uint8_t apic_id, uint8_t page) {
     lapic_write(LAPIC_ICR_HI, (uint32_t)apic_id << 24);
     lapic_write(LAPIC_ICR_LO, 0x00000600 | page);
+    while (lapic_read(LAPIC_ICR_LO) & (1 << 12)) {}
+}
+
+void lapic_send_ipi(uint8_t target_apic_id, uint8_t vector){
+    lapic_write(LAPIC_ICR_HI, (uint32_t)target_apic_id << 24);
+    lapic_write(LAPIC_ICR_LO, vector);
     while (lapic_read(LAPIC_ICR_LO) & (1 << 12)) {}
 }

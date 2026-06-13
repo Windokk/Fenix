@@ -103,3 +103,5 @@ void acpi_reboot(void);
 
 // Called from the SCI IRQ handler to process PM1 fixed events.
 void acpi_sci_handle(void);
+
+extern bool g_lapic_ready;

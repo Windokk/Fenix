@@ -21,6 +21,8 @@
 #include "stdio.h"
 #include "string.h"
 
+#include "cpu/smp.h"
+
 bool g_uacpi_ready = false;
 
 // RSDP
@@ -108,11 +110,12 @@ void uacpi_kernel_stall(uacpi_u8 usec) {
 }
 
 void uacpi_kernel_sleep(uacpi_u64 msec) {
-    if (current_task) {
+    uint32_t cpu_id = cpu_self_id();
+    if (cpu_local[cpu_id].current_task) {
         /* 2 Hz RTC => 1 tick ≈ 500 ms; round up so minimum sleep is 1 tick */
         uint64_t ticks = (msec + 499) / 500;
         if (ticks == 0) ticks = 1;
-        task_sleep(ticks);
+        task_sleep_local(ticks);
     } else {
         /* Scheduler not yet running - busy spin (4 stalls × 250 µs = 1 ms) */
         for (uint64_t i = 0; i < msec; i++)
@@ -195,7 +198,8 @@ void uacpi_kernel_reset_event(uacpi_handle handle) {
 
 uacpi_thread_id uacpi_kernel_get_thread_id(void) {
     /* UACPI_THREAD_ID_NONE == (void *)-1; never return that */
-    if (current_task) return (uacpi_thread_id)current_task;
+    uint32_t cpu_id = cpu_self_id();
+    if (cpu_local[cpu_id].current_task) return (uacpi_thread_id)cpu_local[cpu_id].current_task;
     return (uacpi_thread_id)1;
 }
 

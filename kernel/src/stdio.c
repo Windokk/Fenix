@@ -17,6 +17,8 @@ static uint8_t fb_color_r = 255;
 static uint8_t fb_color_g = 255;
 static uint8_t fb_color_b = 255;
 
+spinlock_t fb_lock = {0};
+
 void cursor_render(bool on){
     if (!video_info.mapped) return;
     if(on)

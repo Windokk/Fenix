@@ -17,6 +17,8 @@
 
 #include "profiling/profiling.h"
 
+#include "cpu/smp.h"
+
 void enable_interrupts()
 {
     asm volatile("sti");
@@ -125,6 +127,8 @@ void idt_init() {
     //LAPIC Timer / Scheduler tick
     config_idt_vector(64, (uintptr_t) vector64);
 
+    config_idt_vector(0xF0, (uintptr_t) vector240);
+
     KLOG_INFO("IDT","Loading IDT");
     load_idt();
 }
@@ -140,9 +144,10 @@ void load_idt()
     load_idt_internal();
 }
 
-void interrupt_handler(isr_ctx_t *regs) {
+void interrupt_handler(isr_ctx_t *regs)
+{
 
-    #ifdef KERNEL_PROFILING
+#ifdef KERNEL_PROFILING
     uint64_t t0 = rdtsc();
     #endif
 
@@ -170,6 +175,14 @@ void interrupt_handler(isr_ctx_t *regs) {
         lapic_timer_handle_irq();
         preempt = true;  // preempt after EOI, not before
     }
+    else if(int_no == 0xF0){
+        if (g_use_apic) {
+            lapic_send_eoi();
+            task_yield_local();
+        }
+        return;
+
+    }
     else if (int_no >= 32) {
         // Unknown hardware IRQ — just EOI and return
         if (g_use_apic) lapic_send_eoi();
@@ -177,7 +190,7 @@ void interrupt_handler(isr_ctx_t *regs) {
     }
     else {
         disable_interrupts();
-        KLOG_ERROR("IDT","Error: %s, Error Code: 0x%x , %llX", exception_strs[int_no], regs->error_code, regs->rip);
+        KLOG_ERROR("IDT","Error: %s, Error Code: 0x%x", exception_strs[int_no], regs->error_code);
         for (;;) {
             asm volatile ("hlt");
         }
@@ -194,8 +207,10 @@ void interrupt_handler(isr_ctx_t *regs) {
     */
     if (g_use_apic) lapic_send_eoi();
 
-    if (preempt && current_task) {
-        task_tick_update();  // wake any tasks whose sleep timer expired
-        task_yield();        // preemptive round-robin
+    uint32_t cpu_id = cpu_self_id();
+
+    if (preempt && cpu_local[cpu_id].current_task) {
+        task_tick_update_local();  // wake any tasks whose sleep timer expired
+        task_yield_local();        // preemptive round-robin
     }
 }

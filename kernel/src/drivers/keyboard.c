@@ -7,6 +7,8 @@
 
 #include "stdio.h"
 
+#include "cpu/smp.h"
+
 // PS/2 Set 1 scancode => ASCII (unshifted / shifted)
 // Index = scancode (0x00–0x58), value = [unshifted, shifted]
 
@@ -126,7 +128,7 @@ void keyboard_handle_irq(void) {
     if (!released) {
         kb_buf_push(ev);
         if (kb_waiter) {
-            task_unblock(kb_waiter);
+            task_unblock_local(kb_waiter);
             kb_waiter = NULL;
         }
     }
@@ -144,10 +146,11 @@ bool keyboard_get_event(key_event_t *out) {
 
 char keyboard_getchar(void) {
     key_event_t ev;
+    int cpu_id = cpu_self_id();
     while (!kb_buf_pop(&ev)) {
-        if (current_task) {
-            kb_waiter = current_task;
-            task_block();
+        if (cpu_local[cpu_id].current_task) {
+            kb_waiter = cpu_local[cpu_id].current_task;
+            task_block_local();
         }
     }
     return ev.ascii;

@@ -2,7 +2,11 @@
 
 #include "common.h"
 
-#define MAX_CPUS 92
+#include "tasks/task.h"
+
+// GDT / TSS
+
+#define MAX_CPUS 256
 
 #define SEG_DESCTYPE(x)  ((x) << 0x04) // Descriptor type (0 for system, 1 for code/data)
 #define SEG_PRES(x)      ((x) << 0x07) // Present
@@ -77,6 +81,8 @@ extern void create_gdt(int cpu_id, uint64_t stack_top);
 extern tss_t       cpu_tss[MAX_CPUS];
 extern cpu_gdt_t   cpu_gdt[MAX_CPUS];
 
+// Initialization
+
 extern volatile uint32_t g_ap_online_count;
 
 extern void smp_start_ap(uint8_t apic_id, uint8_t trampoline_page);
@@ -84,3 +90,35 @@ extern void smp_start_ap(uint8_t apic_id, uint8_t trampoline_page);
 extern void ap_main(uint64_t ap_stack_top);
 
 extern void smp_start_all(void);
+
+// Tasks
+
+typedef struct {
+    volatile int locked;
+} spinlock_t;
+
+typedef struct {
+    task_t* current_task;
+    task_t run_queue[MAX_TASKS];
+    uint32_t run_count;
+    uint32_t next_id;
+    uint32_t cpu_id;
+    spinlock_t lock;
+    pool_t* stack_pool;
+} cpu_local_t;
+
+extern cpu_local_t cpu_local[MAX_CPUS];
+
+extern uint32_t cpu_self_id();
+
+extern uint32_t cpu_least_loaded();
+
+
+static inline void lock(spinlock_t* lock) {
+    while (__sync_lock_test_and_set(&lock->locked, 1))
+        asm volatile("pause");
+}
+
+static inline void unlock(spinlock_t* lock) {
+    __sync_lock_release(&lock->locked);
+}

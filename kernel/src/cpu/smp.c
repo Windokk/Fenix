@@ -1,4 +1,4 @@
-#include "smp/smp.h"
+#include "cpu/smp.h"
 
 #include "acpi/acpi.h"
 
@@ -8,10 +8,14 @@
 #include "interrupts/idt.h"
 #include "interrupts/lapic_timer.h"
 
+#include "tasks/task.h"
+
 volatile uint32_t g_ap_online_count = 1;
 
 tss_t       cpu_tss[MAX_CPUS];
 cpu_gdt_t   cpu_gdt[MAX_CPUS];
+
+cpu_local_t cpu_local[MAX_CPUS];
 
 void smp_start_ap(uint8_t apic_id, uint8_t trampoline_page) {
     lapic_send_init(apic_id);
@@ -126,6 +130,10 @@ void ap_main(uint64_t ap_stack_top) {
         "pushq %%rax\n"
         "lretq\n"
         "1:\n"
+        "mov $0x10, %%ax\n"
+        "mov %%ax, %%ds\n"
+        "mov %%ax, %%es\n"
+        "mov %%ax, %%ss\n"
         : : : "rax", "memory"
     );
 
@@ -134,11 +142,22 @@ void ap_main(uint64_t ap_stack_top) {
     __atomic_fetch_add(&g_ap_online_count, 1, __ATOMIC_SEQ_CST);
     KLOG_INFO("SMP", "AP online  APIC_ID=0x%X", (int)(lapic_read(LAPIC_ID) >> 24) & 0xFF);
 
+    cpu_local[cpu_self_id()].cpu_id = cpu_self_id();
+
     if(g_ap_online_count == g_acpi.cpu_count){
         pte_user[8].all = 0;
         tlb_flush();
     }
 
+    task_init_local();
+
+    task_create_local(idle_task, "idle");
+
+    KLOG_INFO("SMP", "Task system ready for AP %u", cpu_self_id());
+
+    scheduler_start_local();
+
+    // Never reached
     for (;;) __asm__ volatile("hlt");
 }
 
@@ -167,4 +186,29 @@ void smp_start_all(void){
             smp_start_ap(g_acpi.cpus[i].apic_id, 0x08);
         }
     }
+}
+
+uint32_t cpu_self_id()
+{
+    if (!g_lapic_ready) return 0;
+
+    int lapic_id = ((lapic_read(LAPIC_ID) >> 24) & 0xFF);
+    for(int i = 0; i < ACPI_MAX_CPUS; i++){
+        if(g_acpi.cpus[i].apic_id == lapic_id){
+            return i;
+        }
+    }
+    HALT_AND_CATCH_FIRE("cpu_self_id: APIC ID not found");
+}
+
+uint32_t cpu_least_loaded(){
+    uint32_t min_run_count = UINT32_MAX;
+    uint32_t ret_cpu = 0;
+    for(uint32_t i = 0; i < g_acpi.cpu_count; i++){
+        if(cpu_local[i].run_count < min_run_count && cpu_local[i].stack_pool != NULL){
+            ret_cpu = cpu_local[i].cpu_id;
+            min_run_count = cpu_local[i].run_count;
+        }
+    }
+    return ret_cpu;
 }

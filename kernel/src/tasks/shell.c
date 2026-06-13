@@ -16,6 +16,8 @@
 
 #include "profiling/profiling.h"
 
+#include "cpu/smp.h"
+
 #define INPUT_MAX    256
 #define ARGS_MAX     16
 #define HISTORY_SIZE 16
@@ -74,6 +76,7 @@ static void readline_load(char *buf, int max, int *len, const char *str) {
 }
 
 static int shell_readline(char *buf, int max) {
+    uint32_t cpu_id = cpu_self_id();
     cursor_show();
     int len          = 0;
     int history_pos  = -1; /* -1 = not browsing history */
@@ -83,9 +86,9 @@ static int shell_readline(char *buf, int max) {
     while (1) {
         key_event_t ev;
         while (!keyboard_get_event(&ev)) {
-            if (current_task) {
-                kb_waiter = current_task;
-                task_block();
+            if (cpu_local[cpu_id].current_task) {
+                kb_waiter = cpu_local[cpu_id].current_task;
+                task_block_local();
             }
         }
 

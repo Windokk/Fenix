@@ -54,6 +54,8 @@
 
 #define AP_STACK_SIZE 4096 * 4
 
+#define IPI_RESCHEDULE 0xF0
+
 // ─── I/O APIC register indices ────────────────────────────────────────────────
 //
 // Access: write index to IOREGSEL (offset 0x00), read/write data at IOWIN (offset 0x10)
@@ -104,3 +106,5 @@ extern void lapic_write(uint32_t reg, uint32_t val);
 extern void lapic_send_init(uint8_t apic_id);
 
 extern void lapic_send_sipi(uint8_t apic_id, uint8_t page);
+
+extern void lapic_send_ipi(uint8_t target_apic_id, uint8_t vector);

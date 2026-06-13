@@ -8,7 +8,7 @@
 
 global task_switch
 global task_trampoline
-extern task_exit
+extern task_exit_local
 
 section .text
 
@@ -16,7 +16,7 @@ task_trampoline:
     sti
     sub rsp, 8
     call rbx
-    call task_exit
+    call task_exit_local
 
 task_switch:
     push rbx
