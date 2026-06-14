@@ -7,7 +7,7 @@
 <img src="github/shield.svg" alt="shield"/>
 <br>
 
-### A Unix-like operating system (x84_64)
+### A Unix-like operating system (x86_64)
 <br>
 </div>
 
