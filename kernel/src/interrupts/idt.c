@@ -6,8 +6,8 @@
 #include "interrupts/apic.h"   /* also pulls in acpi/acpi.h → g_acpi, g_use_apic */
 #include "interrupts/lapic_timer.h"
 
-#include "drivers/keyboard.h"  /* also pulls in tasks/task.h → current_task, task_* */
-#include "drivers/mouse.h"
+#include "drivers/ps2/ps2_keyboard.h"  /* also pulls in tasks/task.h → current_task, task_* */
+#include "drivers/ps2/ps2_mouse.h"
 #include "drivers/rtc.h"
 
 #include "acpi/acpi.h"
@@ -156,7 +156,7 @@ void interrupt_handler(isr_ctx_t *regs)
 
     if (int_no == 33) {
         if (!g_use_apic) pic_mask_irq(PIC_KEYBOARD_INTERRUPT);
-        keyboard_handle_irq();
+        ps2_keyboard_handle_irq();
         if (!g_use_apic) pic_unmask_irq(PIC_KEYBOARD_INTERRUPT);
     }
     else if (int_no == 40) {
@@ -164,7 +164,7 @@ void interrupt_handler(isr_ctx_t *regs)
     }
     else if (int_no == 44) {
         if (!g_use_apic) pic_mask_irq(PIC_PS2_MOUSE_INTERRUPT);
-        mouse_handle_irq();
+        ps2_mouse_handle_irq();
         if (!g_use_apic) pic_unmask_irq(PIC_PS2_MOUSE_INTERRUPT);
     }
     else if (g_acpi.initialized && int_no == (uint8_t)(32u + g_acpi.sci_irq)) {

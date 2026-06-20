@@ -1,12 +1,12 @@
-#include "drivers/mouse.h"
+#include "drivers/ps2/ps2_mouse.h"
 
 #include "interrupts/pic.h"
 #include "interrupts/idt.h"
 
-#include "drivers/ps2.h"
+#include "drivers/ps2/ps2.h"
+#include "drivers/video.h"
 
 #include "graphics/gfx.h"
-#include "drivers/video.h"
 
 #include "stdio.h"
 
@@ -89,7 +89,7 @@ static void cursor_draw(int32_t x, int32_t y) {
 
 // ---------------------------------------------------------------------------
 
-void mouse_write(uint8_t command) {
+void ps2_mouse_write(uint8_t command) {
     if (!ps2_wait_input_ready()) {
         KLOG_ERROR("PS/2", "Controller not ready for input");
         return;
@@ -102,7 +102,7 @@ void mouse_write(uint8_t command) {
     outb(PORT_PS2_RW_DATA, command);
 }
 
-uint8_t mouse_read(void) {
+uint8_t ps2_mouse_read(void) {
     if (!ps2_wait_output_ready()) {
         KLOG_ERROR("PS/2", "Controller output not ready");
         return 0xFF;
@@ -110,7 +110,7 @@ uint8_t mouse_read(void) {
     return inb(PORT_PS2_RW_DATA);
 }
 
-void mouse_enable(void) {
+void ps2_mouse_enable(void) {
     disable_interrupts();
 
     ps2_flush_output_buffer();
@@ -147,7 +147,7 @@ void mouse_enable(void) {
 static uint8_t mouse_packet[3];
 static uint8_t mouse_index = 0;
 
-void mouse_handle_irq(void) {
+void ps2_mouse_handle_irq(void) {
     uint8_t status = inb(0x64);
     if (!(status & 0x20)) {
         pic_send_eoi(PIC_PS2_MOUSE_INTERRUPT);
@@ -196,7 +196,7 @@ void mouse_handle_irq(void) {
     pic_send_eoi(PIC_PS2_MOUSE_INTERRUPT);
 }
 
-uint8_t mouse_button_state(void)  { return mouse_buttons; }
-int     mouse_left_pressed(void)  { return (mouse_buttons & 0x01) != 0; }
-int     mouse_right_pressed(void) { return (mouse_buttons & 0x02) != 0; }
-int     mouse_middle_pressed(void){ return (mouse_buttons & 0x04) != 0; }
+uint8_t ps2_mouse_button_state(void)  { return mouse_buttons; }
+int     ps2_mouse_left_pressed(void)  { return (mouse_buttons & 0x01) != 0; }
+int     ps2_mouse_right_pressed(void) { return (mouse_buttons & 0x02) != 0; }
+int     ps2_mouse_middle_pressed(void){ return (mouse_buttons & 0x04) != 0; }

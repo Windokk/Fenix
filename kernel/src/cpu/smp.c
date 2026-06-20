@@ -166,10 +166,10 @@ void smp_start_all(void){
     pte_user[8].all = 0x8000 | PAGE_PRESENT_CPL0;
     tlb_flush();
 
-    int bsp_id = ((lapic_read(LAPIC_ID) >> 24) & 0xFF);
+    uint32_t bsp_id = ((lapic_read(LAPIC_ID) >> 24) & 0xFF);
 
     if(g_acpi.cpu_count > 0){
-        for(int i = 0; i < g_acpi.cpu_count; i++){
+        for(uint32_t i = 0; i < g_acpi.cpu_count; i++){
 
             if (g_acpi.cpus[i].apic_id == bsp_id) continue;
                 
@@ -192,13 +192,14 @@ uint32_t cpu_self_id()
 {
     if (!g_lapic_ready) return 0;
 
-    int lapic_id = ((lapic_read(LAPIC_ID) >> 24) & 0xFF);
-    for(int i = 0; i < ACPI_MAX_CPUS; i++){
+    uint32_t lapic_id = ((lapic_read(LAPIC_ID) >> 24) & 0xFF);
+    for(uint32_t i = 0; i < ACPI_MAX_CPUS; i++){
         if(g_acpi.cpus[i].apic_id == lapic_id){
             return i;
         }
     }
     HALT_AND_CATCH_FIRE("cpu_self_id: APIC ID not found");
+    return 0;
 }
 
 uint32_t cpu_least_loaded(){

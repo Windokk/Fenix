@@ -65,24 +65,3 @@ void int_to_ascii(int value, char* str, int base) {
         p2--;
     }
 }
-
-void hex_to_ascii64(uint64_t value, char* str) {
-    const char *hex_digits = "0123456789ABCDEF";
-    char *p = str;
-    int shift = 64 - 4;
-    int started = 0;
-
-    for (; shift >= 0; shift -= 4) {
-        char digit = (value >> shift) & 0xF;
-        if (digit != 0 || started) {
-            *p++ = hex_digits[digit];
-            started = 1;
-        }
-    }
-
-    if (!started) {
-        *p++ = '0';
-    }
-
-    *p = '\0';
-}

@@ -21,10 +21,10 @@ typedef struct {
 
 extern task_t *kb_waiter;
 
-void    keyboard_enable(void);
-void    keyboard_handle_irq(void);
+void    ps2_keyboard_enable(void);
+void    ps2_keyboard_handle_irq(void);
 
-bool    keyboard_has_input(void);
-bool    keyboard_get_event(key_event_t *out); /* non-blocking pop */
-char    keyboard_getchar(void);               /* blocking — spins until a key is available */
-uint8_t keyboard_modifiers(void);             /* current modifier bitmask */
+bool    ps2_keyboard_has_input(void);
+bool    ps2_keyboard_get_event(key_event_t *out); /* non-blocking pop */
+char    ps2_keyboard_getchar(void);               /* blocking — spins until a key is available */
+uint8_t ps2_keyboard_modifiers(void);             /* current modifier bitmask */

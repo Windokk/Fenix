@@ -1,9 +1,9 @@
-#include "drivers/keyboard.h"
+#include "drivers/ps2/ps2_keyboard.h"
 
 #include "interrupts/pic.h"
 #include "interrupts/idt.h"
 
-#include "drivers/ps2.h"
+#include "drivers/ps2/ps2.h"
 
 #include "stdio.h"
 
@@ -84,14 +84,14 @@ static bool kb_buf_pop(key_event_t *out) {
 }
 
 // Public API
-void keyboard_enable(void) {
+void ps2_keyboard_enable(void) {
     disable_interrupts();
     pic_unmask_irq(PIC_KEYBOARD_INTERRUPT);
     enable_interrupts();
-    KLOG_INFO("PS/2","Keyboard enabled");
+    KLOG_INFO("KEYBOARD","Keyboard enabled");
 }
 
-void keyboard_handle_irq(void) {
+void ps2_keyboard_handle_irq(void) {
     uint8_t raw = inb(0x60);
 
     bool released = (raw & SC_RELEASE) != 0;
@@ -136,15 +136,15 @@ void keyboard_handle_irq(void) {
     pic_send_eoi(PIC_KEYBOARD_INTERRUPT);
 }
 
-bool keyboard_has_input(void) {
+bool ps2_keyboard_has_input(void) {
     return kb_head != kb_tail;
 }
 
-bool keyboard_get_event(key_event_t *out) {
+bool ps2_keyboard_get_event(key_event_t *out) {
     return kb_buf_pop(out);
 }
 
-char keyboard_getchar(void) {
+char ps2_keyboard_getchar(void) {
     key_event_t ev;
     int cpu_id = cpu_self_id();
     while (!kb_buf_pop(&ev)) {
@@ -156,7 +156,7 @@ char keyboard_getchar(void) {
     return ev.ascii;
 }
 
-uint8_t keyboard_modifiers(void) {
+uint8_t ps2_keyboard_modifiers(void) {
     return (shift_held   ? KB_MOD_SHIFT : 0)
          | (ctrl_held    ? KB_MOD_CTRL  : 0)
          | (alt_held     ? KB_MOD_ALT   : 0)

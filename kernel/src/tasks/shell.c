@@ -6,7 +6,7 @@
 
 #include "acpi/acpi.h"
 
-#include "drivers/keyboard.h"
+#include "drivers/ps2/ps2_keyboard.h"
 #include "drivers/video.h"
 #include "drivers/rtc.h"
 
@@ -85,7 +85,7 @@ static int shell_readline(char *buf, int max) {
 
     while (1) {
         key_event_t ev;
-        while (!keyboard_get_event(&ev)) {
+        while (!ps2_keyboard_get_event(&ev)) {
             if (cpu_local[cpu_id].current_task) {
                 kb_waiter = cpu_local[cpu_id].current_task;
                 task_block_local();

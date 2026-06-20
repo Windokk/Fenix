@@ -1,8 +1,8 @@
 #include "stdio.h"
 
-#include "common.h"
-#include "graphics/gfx.h"
 #include "string.h"
+
+#include "graphics/gfx.h"
 
 #define CURSOR_W 8
 
@@ -120,36 +120,21 @@ void printf(const char* format, ...) {
 	va_end(args);
 }
 
+int snprintf(char* buf, size_t n, const char *format, ...)
+{
+    va_list args;
+	va_start(args, format);
+	int ret = vsnprintf(buf, n, format, args);
+	va_end(args);
+    return ret;
+}
+
 char toupper(char c)
 {
     if (c >= 'a' && c <= 'f') {
         return c - 32; // Convert lowercase letters to uppercase
     }
     return c;
-}
-
-void to_hex(unsigned int value, char* buffer, bool uppercase) {
-    const char* hex_digits = uppercase ? "0123456789ABCDEF" : "0123456789abcdef";
-    int i = 0;
-
-    // Handle 0 explicitly, because the loop won't run for value = 0
-    if (value == 0) {
-        buffer[i++] = '0';
-    }
-
-    // Convert the integer to hex
-    while (value > 0) {
-        buffer[i++] = hex_digits[value & 0xF];
-        value >>= 4;
-    }
-
-    // Reverse the buffer to get the correct hex representation
-    for (int j = 0; j < i / 2; ++j) {
-        char temp = buffer[j];
-        buffer[j] = buffer[i - j - 1];
-        buffer[i - j - 1] = temp;
-    }
-    buffer[i] = '\0'; // Null-terminate the string
 }
 
 void ftoa(float value, char* buffer, int precision) {
@@ -174,6 +159,31 @@ void ftoa(float value, char* buffer, int precision) {
         }
         *ptr = '\0'; // Null-terminate the string
     }
+}
+
+void hex_to_ascii(uint64_t value, char* str, bool uppercase)
+{
+    const char *hex_digits = uppercase ? "0123456789ABCDEF" : "0123456789abcdef";
+    char *p = str;
+    int shift = 64 - 4;
+    bool started = false;
+
+    *p++ = '0';
+    *p++ = 'x';
+
+    for (; shift >= 0; shift -= 4) {
+        char digit = (value >> shift) & 0xF;
+        if (digit != 0 || started) {
+            *p++ = hex_digits[digit];
+            started = true;
+        }
+    }
+
+    if (!started) {
+        *p++ = '0';
+    }
+
+    *p = '\0';
 }
 
 void vprintf(const char* format, va_list args) {
@@ -243,17 +253,39 @@ void vprintf(const char* format, va_list args) {
                 fb_puts(buffer);
                 format++;
             } else if (*format == 'x') {
-                unsigned int value = va_arg(args, unsigned int);
-                to_hex(value, buffer, false);
-                serial_print(buffer);
-                fb_puts(buffer);
-                format++;
+                /// @todo : support difference between long and long long
+                if(l_count > 0)
+                {
+                    uint64_t value = va_arg(args, uint64_t);
+                    hex_to_ascii(value, buffer, false);
+                    serial_print(buffer);
+                    fb_puts(buffer);
+                    format++;
+                }
+                else{
+                    unsigned int value = va_arg(args, unsigned int);
+                    hex_to_ascii(value, buffer, false);
+                    serial_print(buffer);
+                    fb_puts(buffer);
+                    format++;
+                }
             } else if (*format == 'X') {
-                unsigned int value = va_arg(args, unsigned int);
-                to_hex(value, buffer, true);
-                serial_print(buffer);
-                fb_puts(buffer);
-                format++;
+                /// @todo : support difference between long and long long
+                if(l_count > 0)
+                {
+                    uint64_t value = va_arg(args, uint64_t);
+                    hex_to_ascii(value, buffer, true);
+                    serial_print(buffer);
+                    fb_puts(buffer);
+                    format++;
+                }
+                else{
+                    unsigned int value = va_arg(args, unsigned int);
+                    hex_to_ascii(value, buffer, true);
+                    serial_print(buffer);
+                    fb_puts(buffer);
+                    format++;
+                }
             } else if (*format == 'f') {
                 float value = va_arg(args, double);
                 int precision = 6;
@@ -282,4 +314,141 @@ void vprintf(const char* format, va_list args) {
         }
     }
     cursor_sync();
+}
+
+void buf_putchar(char * buf, size_t n, size_t* pos, char c){
+    if(*pos < n-1)   
+        buf[*pos] = c;
+    (*pos)++;
+}
+
+int vsnprintf(char *buf, size_t n, const char *format, va_list args)
+{
+    if (n == 0) return 0;
+
+    uint8_t pad = 0;
+    char buffer[64]; // Temporary buffer for numbers
+
+    size_t pos = 0;
+
+    while (*format != '\0') {
+        if (*format == '%') {
+            // Process length modifications
+            uint8_t l_count = 0;
+            format++;
+            while(*format == 'l'){
+                l_count++;
+                format++;
+            }
+            // Process actual characters/format identifiers
+            if (*format == '%') {
+                buf_putchar(buf, n, &pos, '%');
+                format++;
+            }
+            else if (*format == 'c') {
+                char cv = (char)va_arg(args, int);
+                buf_putchar(buf, n, &pos, cv);
+                format++;
+            } else if (*format == 's') {
+                char *sv = (char*)va_arg(args, char*);
+                while (*sv) {
+                    buf_putchar(buf, n, &pos, *sv++);
+                }
+                format++;
+            } else if (*format == 'd' || *format == 'i') {
+                /// @todo : support difference between long and long long
+                if(l_count > 0)
+                {
+                    int64_t value = va_arg(args, int64_t);
+                    if (value < 0) {
+                        buf_putchar(buf, n, &pos, '-');
+                        value = -value;
+                    }
+                    itoa(value, buffer, 10);
+                }
+                else{
+                    int value = va_arg(args, int);
+                    if (value < 0) {
+                        buf_putchar(buf, n, &pos, '-');
+                        value = -value;
+                    }
+                    itoa(value, buffer, 10);
+                }
+                char *p = buffer;
+                while (*p) buf_putchar(buf, n, &pos, *p++);
+                format++;
+            } else if (*format == 'u') {
+                /// @todo : support difference between long and long long
+                if(l_count > 0){
+                    uint64_t value = va_arg(args, uint64_t);
+                    itoa(value, buffer, 10);
+                }
+                else{
+                    unsigned int value = va_arg(args, unsigned int);
+                    itoa(value, buffer, 10);
+                }
+                char *p = buffer;
+                while (*p) buf_putchar(buf, n, &pos, *p++);
+                format++;
+            } else if (*format == 'x') {
+                /// @todo : support difference between long and long long
+                if(l_count > 0)
+                {
+                    uint64_t value = va_arg(args, uint64_t);
+                    hex_to_ascii(value, buffer, false);
+                    char *p = buffer;
+                    while (*p) buf_putchar(buf, n, &pos, *p++);
+                    format++;
+                }
+                else{
+                    unsigned int value = va_arg(args, unsigned int);
+                    hex_to_ascii(value, buffer, false);
+                    char *p = buffer;
+                    while (*p) buf_putchar(buf, n, &pos, *p++);
+                    format++;
+                }
+            } else if (*format == 'X') {
+                /// @todo : support difference between long and long long
+                if(l_count > 0)
+                {
+                    uint64_t value = va_arg(args, uint64_t);
+                    hex_to_ascii(value, buffer, true);
+                    char *p = buffer;
+                    while (*p) buf_putchar(buf, n, &pos, *p++);
+                    format++;
+                }
+                else{
+                    unsigned int value = va_arg(args, unsigned int);
+                    hex_to_ascii(value, buffer, true);
+                    char *p = buffer;
+                    while (*p) buf_putchar(buf, n, &pos, *p++);
+                    format++;
+                }
+            } else if (*format == 'f') {
+                float value = va_arg(args, double);
+                int precision = 6;
+                ftoa(value, buffer, precision);
+                char *p = buffer;
+                while (*p) buf_putchar(buf, n, &pos, *p++); 
+                format++;
+            } else if (*format >= '0' && *format <= '9') {
+                if (*format == '0') {
+                    format++;
+                }
+                while (*format >= '0' && *format <= '9') {
+                    pad = pad * 10 + (*format++ - '0');
+                }
+            } else {
+                buf_putchar(buf, n, &pos, '%');
+                buf_putchar(buf, n, &pos, *format);
+                format++;
+            }
+        } else {
+            buf_putchar(buf, n, &pos, *format);
+            format++;
+        }
+    }
+
+    if (n > 0) buf[pos < n ? pos : n - 1] = '\0';
+    return (int)pos;
 }

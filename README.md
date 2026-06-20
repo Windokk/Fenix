@@ -100,9 +100,9 @@
 - [x] Spinlock primitive (distinct from mutex - for IRQ-context use)
 - [x] `cpuid`-based feature detection
 
-### 0.8 - PCI / PCIe Enumeration : Done ▢▢▢▢▢▢▢▢▢▢ 0%
-- [ ] ECAM-based PCIe config space walker
-- [ ] PCI device/vendor database (compact table in kernel)
+### 0.8 - PCI / PCIe Enumeration : Done ■■▢▢▢▢▢▢▢▢ 20%
+- [x] ECAM-based PCIe config space walker
+- [x] PCI device/vendor database (compact table in kernel)
 - [ ] Generic PCI driver model (probe / remove callbacks)
 - [ ] MSI / MSI-X allocation (vector management, LAPIC targeting)
 - [ ] virtio-pci transport (QEMU-first: blk, net, gpu)

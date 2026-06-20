@@ -205,10 +205,12 @@ void acpi_init(void *mbi_phys) {
         uint32_t count = (mcfg->hdr.length - sizeof(struct acpi_mcfg))
                         / sizeof(struct acpi_mcfg_allocation);
 
-        for(int i = 0; i < (uint32_t)count; i++){
+        for(uint32_t i = 0; i < (uint32_t)count; i++){
             if (i >= ACPI_MAX_MCFG) break;
             g_acpi.mcfg[i] = mcfg->entries[i];
         }
+
+        g_acpi.mcfg_count = (count < ACPI_MAX_MCFG) ? count : ACPI_MAX_MCFG;
     }
 
     g_acpi.initialized = true;

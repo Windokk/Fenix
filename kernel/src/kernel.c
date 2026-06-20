@@ -13,12 +13,13 @@
 
 #include "acpi/acpi.h"
 
-#include "drivers/keyboard.h"
-#include "drivers/mouse.h"
-#include "drivers/ps2.h"
+#include "drivers/ps2/ps2_keyboard.h"
+#include "drivers/ps2/ps2_mouse.h"
+#include "drivers/ps2/ps2.h"
 #include "drivers/rtc.h"
 #include "drivers/serial.h"
 #include "drivers/hpet.h"
+#include "drivers/pci.h"
 
 #include "graphics/gfx.h"
 
@@ -152,17 +153,21 @@ void kernel_premain(unsigned long magic, multiboot_info_t* mbi_phys) {
 
     ps2_init();
 
-    KLOG_INFO("KERNEL", "Keyboard Initialization");
+    KLOG_INFO("KERNEL", "PS/2 Keyboard Initialization");
 
-    keyboard_enable();
+    ps2_keyboard_enable();
 
-    KLOG_INFO("KERNEL", "Mouse Initialization");
+    KLOG_INFO("KERNEL", "PS/2 Mouse Initialization");
 
-    mouse_enable();
+    ps2_mouse_enable();
 
     KLOG_INFO("KERNEL", "RTC Initialization");
 
     rtc_init();
+
+    KLOG_INFO("KERNEL", "PCI/e Initialization");
+
+    pci_init();
 
     selftest_run_all();
 

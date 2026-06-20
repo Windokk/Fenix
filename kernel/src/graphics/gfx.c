@@ -276,8 +276,7 @@ static inline uint32_t gfx_blend(uint32_t dst,uint8_t r,uint8_t g,uint8_t b,uint
 int32_t gfx_draw_char(int32_t x, int32_t y, char c, uint32_t r, uint32_t g, uint32_t b)
 {
     // Validate character range
-    if ((uint8_t)c < FONT_FIRST ||
-        (uint8_t)c > FONT_LAST)
+    if ((uint8_t)c < FONT_FIRST /* Always false : || (uint8_t)c > FONT_LAST*/)
     {
         return FONT_HEIGHT / 2;
     }
@@ -438,8 +437,7 @@ int32_t gfx_text_width(const char *str)
             continue;
         }
 
-        if ((uint8_t)*str >= FONT_FIRST &&
-            (uint8_t)*str <= FONT_LAST)
+        if ((uint8_t)*str >= FONT_FIRST /* Always true : && (uint8_t)*str <= FONT_LAST*/)
         {
             uint32_t glyph_index =
                 (uint8_t)*str - FONT_FIRST;

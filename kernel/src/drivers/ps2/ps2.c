@@ -1,4 +1,4 @@
-#include "drivers/ps2.h"
+#include "drivers/ps2/ps2.h"
 
 #include "stdio.h"
 
