@@ -5,7 +5,6 @@
 #include "stdio.h"
 
 #include "memory/paging_pages.h"
-
 static bool g_pci_use_ecam = false;
 static uint64_t g_ecam_base;
 static uint16_t g_ecam_seg;
@@ -14,10 +13,13 @@ static uint8_t g_ecam_bus_end;
 
 static void pci_scan_bus(uint8_t bus); // Forward decl
 
-pci_device_t pci_devices[8192];
-uint32_t     pci_device_count;
+pci_device_t pci_devices[MAX_DEVICES] = {0};
+uint32_t     pci_devices_count = 0;
 
-pci_vendor_pair_t pci_vendors_names[PCI_VENDOR_COUNT] = {
+pci_driver_t* pci_drivers[MAX_DRIVERS] = {0};
+uint32_t      pci_drivers_count = 0;
+
+pci_vendor_name_t pci_vendors_names[PCI_VENDOR_COUNT] = {
 {0x8086, "Intel Corporation"},
 {0x1022, "AMD"},
 {0x10DE, "NVIDIA Corporation"},
@@ -245,7 +247,7 @@ pci_vendor_pair_t pci_vendors_names[PCI_VENDOR_COUNT] = {
 {0x1DE1, "Tekram Technology"}
 };
 
-pci_device_pair_t pci_devices_names[149] = {
+pci_device_name_t pci_devices_names[149] = {
     /* =========================
      * Unclassified
      * ========================= */
@@ -616,9 +618,9 @@ static pci_device_t pci_scan_function(uint8_t bus, uint8_t device, uint8_t func)
         uint8_t sec_bus = pci_read8(bus, device, func, 0x19, virt);
         KLOG_INFO("PCI", "Found bridge : secondary bus %X", sec_bus);
         pci_scan_bus(sec_bus);
-        if(pci_device_count < PCI_MAX_DEVICES){
-            pci_devices[pci_device_count] = pci_device;
-            pci_device_count++;
+        if(pci_devices_count < PCI_MAX_DEVICES){
+            pci_devices[pci_devices_count] = pci_device;
+            pci_devices_count++;
         }
         if(g_pci_use_ecam)
             paging_unmap_mmio(virt, 4096);
@@ -632,20 +634,21 @@ static pci_device_t pci_scan_function(uint8_t bus, uint8_t device, uint8_t func)
     pci_device.irq_line = pci_read8(bus, device, func, 0x3C, virt);
     pci_device.irq_pin  = pci_read8(bus, device, func, 0x3D, virt);
 
-    if(pci_device_count < PCI_MAX_DEVICES){
-        pci_devices[pci_device_count] = pci_device;
-        pci_device_count++;
+    if(pci_devices_count < PCI_MAX_DEVICES){
+        pci_devices[pci_devices_count] = pci_device;
+        pci_devices_count++;
     }
 
     char name[128];
 
     get_pci_device_full_name(vendor_id, pci_device.class_code, pci_device.subclass, pci_device.prog_if, name, sizeof(name));
 
-    KLOG_INFO("PCI", "%X:%X.%X : %s",
+    KLOG_INFO("PCI", "%llX:%llX.%llX : %s",
            bus, device, func, name);
 
     if(g_pci_use_ecam)
         paging_unmap_mmio(virt, 4096);
+
     return pci_device;
 }
 
@@ -670,7 +673,7 @@ static void pci_scan_bus(uint8_t bus){
 
 void pci_init(void)
 {
-    pci_device_count = 0;
+    pci_devices_count = 0;
 
     if(g_acpi.mcfg_count > 0){
         // MCFG parsed : using modern ECAM method
@@ -689,20 +692,34 @@ void pci_init(void)
 
     pci_scan_bus(0);
 
-    KLOG_INFO("PCI", "%u devices found", pci_device_count);
+    KLOG_INFO("PCI", "%u devices found", pci_devices_count);
+
+    for(int i = 0; i < pci_devices_count; i++)
+        pci_match_driver(&pci_devices[i]);
 }
 
-pci_device_t* get_pci_device(uint8_t class_code, uint8_t subclass, uint8_t prog_if)
-{
-    if(pci_device_count <= 0){
-        return NULL;
-    }
-    
-    for(int i = 0; i < pci_device_count; i++){
-        if(pci_devices[i].class_code == class_code && pci_devices[i].subclass == subclass && pci_devices[i].prog_if == prog_if){
-            return &pci_devices[i];
+void pci_register_driver(pci_driver_t* driver){
+    if (pci_drivers_count >= MAX_DRIVERS) return;
+
+    pci_drivers[pci_drivers_count] = driver;
+    pci_drivers_count++;
+
+    for(int i = 0; i < pci_devices_count; i++){
+        for (int k = 0; driver->id_table[k].vendor_id != 0 || driver->id_table[k].device_id != 0; k++) {
+            if(driver->id_table[k].vendor_id == pci_devices[i].vendor_id && driver->id_table[k].device_id == pci_devices[i].device_id){
+                driver->probe(&pci_devices[i]);
+                break;
+            }
         }
     }
+}
 
-    return NULL;
+void pci_match_driver(pci_device_t* device){
+    for(int i = 0; i < pci_drivers_count; i++){
+        for (int k = 0; pci_drivers[i]->id_table[k].vendor_id != 0 || pci_drivers[i]->id_table[k].device_id != 0; k++) {
+            if(pci_drivers[i]->id_table[k].vendor_id == device->vendor_id && pci_drivers[i]->id_table[k].device_id == device->device_id){
+                pci_drivers[i]->probe(device);
+            }
+        }
+    }
 }

@@ -22,20 +22,23 @@
 
 #define PCI_VENDOR_COUNT       200
 
+#define MAX_DRIVERS            10000
+#define MAX_DEVICES            8192
+
 typedef struct {
     uint16_t vendor_id;
     char* readable_name;
-} pci_vendor_pair_t;
+} pci_vendor_name_t;
 
 typedef struct {
     uint8_t class_code;
     uint8_t subclass_code;
     uint8_t prog_if;
     const char *readable_name;
-} pci_device_pair_t;
+} pci_device_name_t;
 
-extern pci_vendor_pair_t pci_vendors_names[PCI_VENDOR_COUNT];
-extern pci_device_pair_t pci_devices_names[149];
+extern pci_vendor_name_t pci_vendors_names[PCI_VENDOR_COUNT];
+extern pci_device_name_t pci_devices_names[149];
 
 typedef struct pci_device_t {
     uint8_t  bus, device, function;
@@ -47,10 +50,25 @@ typedef struct pci_device_t {
     uint8_t  irq_pin;
 } pci_device_t;
 
+typedef struct pci_device_id_t{
+    uint16_t vendor_id, device_id;
+} pci_device_id_t;
 
-extern pci_device_t pci_devices[8192];
-extern uint32_t     pci_device_count;
+typedef struct pci_driver_t{
+    char* name;
+    pci_device_id_t* id_table; // Sentinel-ended ({0,0})
+    int  (*probe)(pci_device_t*);
+    void (*remove)(pci_device_t*);
+} pci_driver_t;
+
+extern pci_device_t pci_devices[MAX_DEVICES];
+extern uint32_t     pci_devices_count;
+
+extern pci_driver_t* pci_drivers[MAX_DRIVERS];
+extern uint32_t      pci_drivers_count;
 
 extern void pci_init(void);
 
-extern pci_device_t* get_pci_device(uint8_t class_code, uint8_t subclass, uint8_t prog_if);
+extern void pci_register_driver(pci_driver_t* driver);
+
+extern void pci_match_driver(pci_device_t* device);

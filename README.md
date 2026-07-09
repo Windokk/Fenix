@@ -11,7 +11,7 @@
 <br>
 </div>
 
-## How to run : 
+## How to build & run : 
 
 - Build a cross-compiler (x86_64_elf) : gcc, binutils
 - Install xorriso, nasm, grub2 and qemu
@@ -100,12 +100,13 @@
 - [x] Spinlock primitive (distinct from mutex - for IRQ-context use)
 - [x] `cpuid`-based feature detection
 
-### 0.8 - PCI / PCIe Enumeration : Done ■■▢▢▢▢▢▢▢▢ 20%
+### 0.8 - PCI / PCIe Enumeration : Done ■■■■■■▢▢▢▢ 60%
 - [x] ECAM-based PCIe config space walker
 - [x] PCI device/vendor database (compact table in kernel)
-- [ ] Generic PCI driver model (probe / remove callbacks)
+- [x] Generic PCI driver model (probe / remove callbacks)
 - [ ] MSI / MSI-X allocation (vector management, LAPIC targeting)
 - [ ] virtio-pci transport (QEMU-first: blk, net, gpu)
+- [ ] PCI USB (xHCI) driver
 
 ### 0.9 - Userspace : Done ▢▢▢▢▢▢▢▢▢▢ 0%
 - [ ] Syscall interface (`syscall` / `sysret`, syscall dispatch table)
