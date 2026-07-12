@@ -6,10 +6,13 @@
 
 #include "tasks/task.h"
 #include "tasks/shell.h"
+#include "tasks/mouse_task.h"
 
 #include "interrupts/pic.h"
 #include "interrupts/idt.h"
 #include "interrupts/apic.h"
+
+#include "input/input_subsys.h"
 
 #include "acpi/acpi.h"
 
@@ -20,6 +23,7 @@
 #include "drivers/serial.h"
 #include "drivers/hpet.h"
 #include "drivers/pci.h"
+#include "drivers/usb/xhci.h"
 
 #include "graphics/gfx.h"
 
@@ -165,17 +169,26 @@ void kernel_premain(unsigned long magic, multiboot_info_t* mbi_phys) {
 
     rtc_init();
 
-    KLOG_INFO("KERNEL", "PCI/e Initialization");
+    KLOG_INFO("KERNEL", "PCI(e) Initialization");
 
     pci_init();
 
+    pci_register_driver(&xhci_driver);
+
     selftest_run_all();
 
+    init_input();
+
     task_init_local();
+    task_create_local(shell_task, "shell");
+    task_create_local(mouse_task, "mouse");
     task_create_local(idle_task, "idle");
     KLOG_INFO("SMP", "Task system ready for AP %u", cpu_self_id());
 
     smp_start_all();
+    
+    while(g_ap_online_count < g_acpi.cpu_count)
+        asm volatile("pause");
 
     enable_interrupts();
 }

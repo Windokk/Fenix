@@ -20,7 +20,7 @@
 #define PCI_OFFSET_IRQ_LINE    0x3C
 #define PCI_OFFSET_IRQ_PIN     0x3D
 
-#define PCI_VENDOR_COUNT       200
+#define PCI_VENDOR_COUNT       225
 
 #define MAX_DRIVERS            10000
 #define MAX_DEVICES            8192
@@ -45,9 +45,13 @@ typedef struct pci_device_t {
     uint16_t vendor_id, device_id;
     uint8_t  class_code, subclass, prog_if, revision;
     uint8_t  header_type;
+    uint16_t status;
     uint32_t bars[6];
     uint8_t  irq_line;
     uint8_t  irq_pin;
+    uint8_t  msi_cap_offset;
+    uint8_t  msix_cap_offset;
+    uint64_t phys;
 } pci_device_t;
 
 typedef struct pci_device_id_t{
@@ -67,8 +71,16 @@ extern uint32_t     pci_devices_count;
 extern pci_driver_t* pci_drivers[MAX_DRIVERS];
 extern uint32_t      pci_drivers_count;
 
-extern void pci_init(void);
+void pci_init(void);
 
-extern void pci_register_driver(pci_driver_t* driver);
+void pci_register_driver(pci_driver_t* driver);
 
-extern void pci_match_driver(pci_device_t* device);
+void pci_match_driver(pci_device_t* device);
+
+uint16_t pci_read16(uint8_t bus, uint8_t device, uint8_t func, uint8_t offset, void* virt);
+
+void pci_write16(uint8_t bus, uint8_t device, uint8_t func, uint8_t offset, uint16_t value, void* virt);
+
+int pci_enable_msi(pci_device_t* device, uint8_t vector);
+
+int pci_enable_msix(pci_device_t* device, uint8_t* vectors_out, uint16_t count);

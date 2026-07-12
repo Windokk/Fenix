@@ -19,6 +19,10 @@
 
 #include "cpu/smp.h"
 
+extern void* msi_stubs[175];
+
+static void (*irq_handlers[256])(isr_ctx_t*) = {0};
+
 void enable_interrupts()
 {
     asm volatile("sti");
@@ -129,6 +133,9 @@ void idt_init() {
 
     config_idt_vector(0xF0, (uintptr_t) vector240);
 
+    for (int i = 0; i < 175; i++)
+        config_idt_vector(0x41 + i, (uintptr_t)msi_stubs[i]);
+
     KLOG_INFO("IDT","Loading IDT");
     load_idt();
 }
@@ -142,6 +149,11 @@ inline static void load_idt_internal() {
 void load_idt()
 {
     load_idt_internal();
+}
+
+void idt_register_irq_handler(uint8_t vector, void (*handler)(isr_ctx_t *))
+{
+    irq_handlers[vector] = handler;
 }
 
 void interrupt_handler(isr_ctx_t *regs)
@@ -182,6 +194,12 @@ void interrupt_handler(isr_ctx_t *regs)
         }
         return;
 
+    }
+    else if (int_no >= 0x41 && int_no <= 0xEF) {
+        if (irq_handlers[int_no])
+            irq_handlers[int_no](regs);
+        if (g_use_apic) lapic_send_eoi();
+        return;
     }
     else if (int_no >= 32) {
         // Unknown hardware IRQ — just EOI and return

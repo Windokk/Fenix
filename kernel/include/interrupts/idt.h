@@ -73,6 +73,7 @@ extern void vector44(void);
 /* LAPIC Timer / Scheduler tick */
 extern void vector64(void);
 
+/* IPI Reschedule (SMP) */
 extern void vector240(void);
 
 struct isr_ctx_struct {
@@ -115,3 +116,5 @@ void restore_interrupts(uintptr_t interrupts_state);
 void idt_init();
 
 void load_idt();
+
+void idt_register_irq_handler(uint8_t vector, void (*handler)(isr_ctx_t*));

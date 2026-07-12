@@ -4,6 +4,8 @@
 
 #include "graphics/gfx.h"
 
+#include "interrupts/idt.h"
+
 #define CURSOR_W 8
 
 static int32_t fb_cx = 0;
@@ -28,18 +30,26 @@ void cursor_render(bool on){
 }
 
 void cursor_show(void) {
+    uintptr_t _flags = disable_interrupts();
+    lock(&fb_lock);
     cursor_active = true;
     cursor_render(false);
     cursor_px = fb_cx;
     cursor_py = fb_cy;
     cursor_render(true);
     cursor_on = true;
+    unlock(&fb_lock);
+    restore_interrupts(_flags);
 }
 
 void cursor_hide(void) {
+    uintptr_t _flags = disable_interrupts();
+    lock(&fb_lock);
     cursor_active = false;
     cursor_render(false);
     cursor_on = false;
+    unlock(&fb_lock);
+    restore_interrupts(_flags);
 }
 
 void cursor_sync(void) {
@@ -53,10 +63,19 @@ void cursor_sync(void) {
 }
 
 void cursor_blink_tick(void) {
-    if (!cursor_active) return;
+    uintptr_t _flags = disable_interrupts();
+    lock(&fb_lock);
+
+    if (!cursor_active) {
+        unlock(&fb_lock);
+        restore_interrupts(_flags);
+        return;
+    }
 
     cursor_on = !cursor_on;
     cursor_render(cursor_on);
+    unlock(&fb_lock);
+    restore_interrupts(_flags);
 }
 
 static void fb_scroll() {
@@ -75,20 +94,37 @@ int32_t console_cursor_x(void) {
 }
 
 void console_clear(void) {
-    if (!video_info.mapped) return;
+    uintptr_t _flags = disable_interrupts();
+    lock(&fb_lock);
+    if (!video_info.mapped) {
+        unlock(&fb_lock);
+        restore_interrupts(_flags);
+        return;
+    }
     uint32_t *fb = (uint32_t *)video_info.virt_addr;
     memset(fb, 0, video_info.width * video_info.height * sizeof(uint32_t));
     fb_cx = 0;
     fb_cy = 0;
     cursor_sync();
+
+    unlock(&fb_lock);
+    restore_interrupts(_flags);
 }
 
 void console_erase_chars(int32_t pixel_width) {
-    if (!video_info.mapped || pixel_width <= 0) return;
+    uintptr_t _flags = disable_interrupts();
+    lock(&fb_lock);
+    if (!video_info.mapped || pixel_width <= 0) {
+        unlock(&fb_lock);
+        restore_interrupts(_flags);
+        return;
+    }
     fb_cx -= pixel_width;
     if (fb_cx < 0) fb_cx = 0;
     gfx_draw_filled_rectangle(fb_cx, fb_cy, pixel_width, GFX_LINE_HEIGHT, 0, 0, 0);
     cursor_sync();
+    unlock(&fb_lock);
+    restore_interrupts(_flags);
 }
 
 void fb_set_color(uint8_t r, uint8_t g, uint8_t b){
@@ -168,9 +204,6 @@ void hex_to_ascii(uint64_t value, char* str, bool uppercase)
     int shift = 64 - 4;
     bool started = false;
 
-    *p++ = '0';
-    *p++ = 'x';
-
     for (; shift >= 0; shift -= 4) {
         char digit = (value >> shift) & 0xF;
         if (digit != 0 || started) {
@@ -186,7 +219,159 @@ void hex_to_ascii(uint64_t value, char* str, bool uppercase)
     *p = '\0';
 }
 
+void klog_print(uint8_t r, uint8_t g, uint8_t b, const char* prefix, const char* fmt, ...) {
+    uintptr_t _flags = disable_interrupts();
+    lock(&fb_lock);
+    va_list args;
+	va_start(args, fmt);
+    fb_color_r = r; fb_color_g = g; fb_color_b = b;
+    vprintf_unlocked(prefix, args);
+    fb_color_r = 255; fb_color_g = 255; fb_color_b = 255;
+    vprintf_unlocked(fmt, args);
+	va_end(args);
+    unlock(&fb_lock);
+    restore_interrupts(_flags);
+}
+
 void vprintf(const char* format, va_list args) {
+    uintptr_t _flags = disable_interrupts();
+    lock(&fb_lock);
+    uint8_t pad = 0;
+    char buffer[64]; // Temporary buffer for numbers
+
+    while (*format != '\0') {
+        if (*format == '%') {
+            // Process length modifications
+            uint8_t l_count = 0;
+            format++;
+            while(*format == 'l'){
+                l_count++;
+                format++;
+            }
+            // Process actual characters/format identifiers
+            if (*format == '%') {
+                write_serial('%');
+                fb_putchar('%');
+                format++;
+            }
+            else if (*format == 'c') {
+                char cv = (char)va_arg(args, int);
+                write_serial(cv);
+                fb_putchar(cv);
+                format++;
+            } else if (*format == 's') {
+                char *sv = (char*)va_arg(args, char*);
+                if(sv == NULL){
+                    sv = "";
+                }
+                serial_print(sv);
+                fb_puts(sv);
+                format++;
+            } else if (*format == 'd' || *format == 'i') {
+                /// @todo : support difference between long and long long
+                if(l_count > 0)
+                {
+                    int64_t value = va_arg(args, int64_t);
+                    if (value < 0) {
+                        write_serial('-');
+                        fb_putchar('-');
+                        value = -value;
+                    }
+                    itoa(value, buffer, 10);
+                }
+                else{
+                    int value = va_arg(args, int);
+                    if (value < 0) {
+                        write_serial('-');
+                        fb_putchar('-');
+                        value = -value;
+                    }
+                    itoa(value, buffer, 10);
+                }
+                serial_print(buffer);
+                fb_puts(buffer);
+                format++;
+            } else if (*format == 'u') {
+                /// @todo : support difference between long and long long
+                if(l_count > 0){
+                    uint64_t value = va_arg(args, uint64_t);
+                    itoa(value, buffer, 10);
+                }
+                else{
+                    unsigned int value = va_arg(args, unsigned int);
+                    itoa(value, buffer, 10);
+                }
+                serial_print(buffer);
+                fb_puts(buffer);
+                format++;
+            } else if (*format == 'x') {
+                /// @todo : support difference between long and long long
+                if(l_count > 0)
+                {
+                    uint64_t value = va_arg(args, uint64_t);
+                    hex_to_ascii(value, buffer, false);
+                    serial_print(buffer);
+                    fb_puts(buffer);
+                    format++;
+                }
+                else{
+                    unsigned int value = va_arg(args, unsigned int);
+                    hex_to_ascii(value, buffer, false);
+                    serial_print(buffer);
+                    fb_puts(buffer);
+                    format++;
+                }
+            } else if (*format == 'X') {
+                /// @todo : support difference between long and long long
+                if(l_count > 0)
+                {
+                    uint64_t value = va_arg(args, uint64_t);
+                    hex_to_ascii(value, buffer, true);
+                    serial_print(buffer);
+                    fb_puts(buffer);
+                    format++;
+                }
+                else{
+                    unsigned int value = va_arg(args, unsigned int);
+                    hex_to_ascii(value, buffer, true);
+                    serial_print(buffer);
+                    fb_puts(buffer);
+                    format++;
+                }
+            } else if (*format == 'f') {
+                float value = va_arg(args, double);
+                int precision = 6;
+                ftoa(value, buffer, precision);
+                serial_print(buffer);
+                fb_puts(buffer);
+                format++;
+            } else if (*format >= '0' && *format <= '9') {
+                if (*format == '0') {
+                    format++;
+                }
+                while (*format >= '0' && *format <= '9') {
+                    pad = pad * 10 + (*format++ - '0');
+                }
+            } else {
+                write_serial('%');
+                write_serial(*format);
+                fb_putchar('%');
+                fb_putchar(*format);
+                format++;
+            }
+        } else {
+            write_serial(*format);
+            fb_putchar(*format);
+            format++;
+        }
+    }
+    cursor_sync();
+    unlock(&fb_lock);
+    restore_interrupts(_flags);
+}
+
+void vprintf_unlocked(const char *format, va_list args)
+{
     uint8_t pad = 0;
     char buffer[64]; // Temporary buffer for numbers
 

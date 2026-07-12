@@ -151,3 +151,18 @@ isr_stub_irq 44
 isr_stub_irq 64
 
 isr_stub_irq 240
+
+%assign i 0x41
+%rep 0xAF          ; 0xEF - 0x41 + 1 = 175
+    isr_stub_irq i
+    %assign i i+1
+%endrep
+
+section .data
+global msi_stubs
+msi_stubs:
+%assign i 0x41
+%rep 0xAF
+    dq vector%+i
+    %assign i i+1
+%endrep

@@ -6,6 +6,12 @@
 
 #define GFX_LINE_HEIGHT 24
 
+void gfx_save_cursor_bg(int32_t x, int32_t y);
+
+void gfx_restore_cursor_bg();
+
+void gfx_draw_cursor(int32_t x, int32_t y);
+
 // Draw a single pixel
 void gfx_draw_pixel(int32_t x, int32_t y,  uint32_t r, uint32_t g, uint32_t b);
 

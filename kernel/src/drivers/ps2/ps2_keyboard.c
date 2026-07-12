@@ -1,5 +1,7 @@
 #include "drivers/ps2/ps2_keyboard.h"
 
+#include "input/input_subsys.h"
+
 #include "interrupts/pic.h"
 #include "interrupts/idt.h"
 
@@ -55,34 +57,6 @@ static const char scancode_map[2][89] = {
 // Release codes = make code | 0x80
 #define SC_RELEASE  0x80
 
-// Modifier state
-static bool shift_held   = false;
-static bool ctrl_held    = false;
-static bool alt_held     = false;
-static bool caps_lock_on = false;
-
-// Ring buffer
-#define KB_BUF_SIZE 64
-
-static key_event_t kb_buffer[KB_BUF_SIZE];
-static uint8_t     kb_head    = 0;
-static uint8_t     kb_tail    = 0;
-task_t            *kb_waiter  = NULL;
-
-static void kb_buf_push(key_event_t ev) {
-    uint8_t next = (kb_head + 1) % KB_BUF_SIZE;
-    if (next == kb_tail) return; /* full — drop oldest */
-    kb_buffer[kb_head] = ev;
-    kb_head = next;
-}
-
-static bool kb_buf_pop(key_event_t *out) {
-    if (kb_head == kb_tail) return false;
-    *out = kb_buffer[kb_tail];
-    kb_tail = (kb_tail + 1) % KB_BUF_SIZE;
-    return true;
-}
-
 // Public API
 void ps2_keyboard_enable(void) {
     disable_interrupts();
@@ -97,13 +71,28 @@ void ps2_keyboard_handle_irq(void) {
     bool released = (raw & SC_RELEASE) != 0;
     uint8_t sc    = raw & ~SC_RELEASE;
 
+    uint8_t mods = 0;
+    input_key_modifiers_read(&mods);
+
+    bool lshift_held = mods & (1 << 6);
+    bool rshift_held = mods & (1 << 5);
+    bool lctrl_held = mods & (1 << 4);
+    bool rctrl_held = mods & (1 << 3);
+    bool lalt_held = mods & (1 << 2);
+    bool ralt_held = mods & (1 << 1);
+    bool caps_lock_on = mods & (1 << 0);
+
     /* Update modifier state */
-    if (sc == SC_LSHIFT || sc == SC_RSHIFT) {
-        shift_held = !released;
+    if (sc == SC_LSHIFT){
+        lshift_held = !released;
+    }if(sc == SC_RSHIFT) {
+        rshift_held = !released;
     } else if (sc == SC_CTRL) {
-        ctrl_held = !released;
+        lctrl_held = !released;
+        rctrl_held = !released;
     } else if (sc == SC_ALT) {
-        alt_held = !released;
+        lalt_held = !released;
+        ralt_held = !released;
     } else if (sc == SC_CAPSLOCK && !released) {
         caps_lock_on = !caps_lock_on;
     }
@@ -111,7 +100,7 @@ void ps2_keyboard_handle_irq(void) {
     /* Determine ASCII value */
     char ascii = 0;
     if (sc < 89) {
-        bool use_upper = shift_held ^ caps_lock_on;
+        bool use_upper = (lshift_held || rshift_held) ^ caps_lock_on;
         ascii = scancode_map[use_upper ? 1 : 0][sc];
     }
 
@@ -119,46 +108,18 @@ void ps2_keyboard_handle_irq(void) {
         .scancode  = sc,
         .ascii     = ascii,
         .released  = released,
-        .shift     = shift_held,
-        .ctrl      = ctrl_held,
-        .alt       = alt_held,
+        .lshift     = lshift_held,
+        .rshift     = rshift_held,
+        .lctrl      = lctrl_held,
+        .rctrl      = rctrl_held,
+        .lalt       = lalt_held,
+        .ralt       = ralt_held,
         .caps_lock = caps_lock_on,
     };
 
     if (!released) {
-        kb_buf_push(ev);
-        if (kb_waiter) {
-            task_unblock_local(kb_waiter);
-            kb_waiter = NULL;
-        }
+        input_key_event(ev);
     }
 
     pic_send_eoi(PIC_KEYBOARD_INTERRUPT);
-}
-
-bool ps2_keyboard_has_input(void) {
-    return kb_head != kb_tail;
-}
-
-bool ps2_keyboard_get_event(key_event_t *out) {
-    return kb_buf_pop(out);
-}
-
-char ps2_keyboard_getchar(void) {
-    key_event_t ev;
-    int cpu_id = cpu_self_id();
-    while (!kb_buf_pop(&ev)) {
-        if (cpu_local[cpu_id].current_task) {
-            kb_waiter = cpu_local[cpu_id].current_task;
-            task_block_local();
-        }
-    }
-    return ev.ascii;
-}
-
-uint8_t ps2_keyboard_modifiers(void) {
-    return (shift_held   ? KB_MOD_SHIFT : 0)
-         | (ctrl_held    ? KB_MOD_CTRL  : 0)
-         | (alt_held     ? KB_MOD_ALT   : 0)
-         | (caps_lock_on ? KB_MOD_CAPS  : 0);
 }

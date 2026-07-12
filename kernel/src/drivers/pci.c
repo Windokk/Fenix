@@ -5,6 +5,11 @@
 #include "stdio.h"
 
 #include "memory/paging_pages.h"
+
+#include "interrupts/idt.h"
+
+#include "interrupts/irq.h"
+
 static bool g_pci_use_ecam = false;
 static uint64_t g_ecam_base;
 static uint16_t g_ecam_seg;
@@ -525,7 +530,6 @@ static uint8_t pci_read8(uint8_t bus, uint8_t device, uint8_t func, uint8_t offs
         uint32_t lfunc = (uint32_t)func;
         uint8_t tmp = 0;
     
-        // Create configuration address as per Figure 1
         address = (uint32_t)((lbus << 16)  | (lslot << 11) | 
                 (lfunc << 8) | ((offset & ~3) & 0xFC) | ((uint32_t)0x80000000));
     
@@ -538,7 +542,7 @@ static uint8_t pci_read8(uint8_t bus, uint8_t device, uint8_t func, uint8_t offs
     
 }
 
-static uint16_t pci_read16(uint8_t bus, uint8_t device, uint8_t func, uint8_t offset, void* virt) {
+uint16_t pci_read16(uint8_t bus, uint8_t device, uint8_t func, uint8_t offset, void* virt) {
     if(g_pci_use_ecam){
         uint32_t value = *(volatile uint32_t*)((uint8_t*)virt + (offset & ~3));
         return (uint16_t)(value >> ((offset & 2) * 8)) & 0xFFFF;
@@ -550,7 +554,6 @@ static uint16_t pci_read16(uint8_t bus, uint8_t device, uint8_t func, uint8_t of
         uint32_t lfunc = (uint32_t)func;
         uint16_t tmp = 0;
     
-        // Create configuration address as per Figure 1
         address = (uint32_t)((lbus << 16) | (lslot << 11) | 
                 (lfunc << 8) | (offset & 0xFC) | ((uint32_t)0x80000000));
     
@@ -574,15 +577,140 @@ static uint32_t pci_read32(uint8_t bus, uint8_t device, uint8_t func, uint8_t of
         uint32_t lslot = (uint32_t)device;
         uint32_t lfunc = (uint32_t)func;
     
-        // Create configuration address as per Figure 1
-        address = (uint32_t)((lbus << 16) | (lslot << 11) | 
-                (lfunc << 8) | (offset & 0xFC) | ((uint32_t)0x80000000));
+        address = (uint32_t)((lbus << 16) | (lslot << 11) | (lfunc << 8) | (offset & 0xFC) | ((uint32_t)0x80000000));
     
         // Write out the address
         outl(PCI_CONFIG_ADDRESS, address);
         // Read in the data
         return inl(PCI_CONFIG_DATA);
     }
+}
+
+void pci_write16(uint8_t bus, uint8_t device, uint8_t func, uint8_t offset, uint16_t value, void* virt){
+    if(g_pci_use_ecam){
+        uint32_t tmp = *(volatile uint32_t*)((uint8_t*)virt + (offset & ~3));
+        tmp &= ~((uint32_t)0xFFFF << ((offset & 2) * 8));
+        tmp |=  ((uint32_t)value << ((offset & 2) * 8));
+        *(volatile uint32_t*)((uint8_t*)virt + (offset & ~3)) = tmp;
+    }
+    else{
+        uint32_t address;
+        uint32_t lbus  = (uint32_t)bus;
+        uint32_t lslot = (uint32_t)device;
+        uint32_t lfunc = (uint32_t)func;
+    
+        address = (uint32_t)((lbus << 16) | (lslot << 11) | 
+                (lfunc << 8) | (offset & 0xFC) | ((uint32_t)0x80000000));
+    
+        outl(PCI_CONFIG_ADDRESS, address);
+
+        uint32_t dword = inl(PCI_CONFIG_DATA);
+        dword &= ~((uint32_t)0xFFFF << ((offset & 2) * 8));
+        dword |= ((uint32_t)value << ((offset & 2) * 8));
+        outl(PCI_CONFIG_DATA, dword);
+    }
+}
+
+static void pci_write32(uint8_t bus, uint8_t device, uint8_t func, uint8_t offset, uint32_t value, void* virt){
+    if(g_pci_use_ecam){
+        *(volatile uint32_t*)((uint8_t*)virt + (offset & ~3)) = value;
+    }
+    else{
+        uint32_t address;
+        uint32_t lbus  = (uint32_t)bus;
+        uint32_t lslot = (uint32_t)device;
+        uint32_t lfunc = (uint32_t)func;
+    
+        address = (uint32_t)((lbus << 16) | (lslot << 11) | (lfunc << 8) | (offset & 0xFC) | ((uint32_t)0x80000000));
+
+        outl(PCI_CONFIG_ADDRESS, address);
+
+        outl(PCI_CONFIG_DATA, value);
+    }
+}
+
+int pci_enable_msi(pci_device_t* device, uint8_t vector){
+    if (device->msi_cap_offset == 0) return -1;
+
+    void* virt = NULL;
+    if(g_pci_use_ecam)
+        virt = paging_map_mmio(device->phys, 4096);
+
+    uint16_t mc = pci_read16(device->bus, device->device, device->function, device->msi_cap_offset + 2, virt);
+
+    uint32_t msg_addr = 0xFEE00000 | (0 << 12); // 0 => apic id (only bsp for now)
+
+    uint16_t msg_data = vector;
+
+    // Message Address
+    pci_write32(device->bus, device->device, device->function, device->msi_cap_offset + 4, msg_addr, virt);
+
+    // Message Data
+    if(mc & (1 << 7)){
+        // 64 bit capable
+        pci_write32(device->bus, device->device, device->function, device->msi_cap_offset + 8, 0, virt);
+        pci_write16(device->bus, device->device, device->function, device->msi_cap_offset + 12, msg_data, virt);
+    }
+    else{
+        pci_write16(device->bus, device->device, device->function, device->msi_cap_offset + 8, msg_data, virt);
+    }
+
+    mc |= 1;
+    pci_write16(device->bus, device->device, device->function, device->msi_cap_offset + 2, mc, virt);
+
+    if(g_pci_use_ecam)
+        paging_unmap_mmio(virt, 4096);
+
+    return 0;
+}
+
+int pci_enable_msix(pci_device_t* device, uint8_t* vectors_out, uint16_t count){
+    if (device->msix_cap_offset == 0) return -1;
+
+    void* virt = NULL;
+    if(g_pci_use_ecam)
+        virt = paging_map_mmio(device->phys, 4096);
+
+    uint16_t mc = pci_read16(device->bus, device->device, device->function, device->msix_cap_offset + 2, virt);
+
+    uint16_t table_size = (mc & 0x7FF) + 1;
+
+    uint32_t table_bir = pci_read32(device->bus, device->device, device->function, device->msix_cap_offset + 4, virt);
+    
+    uint32_t bir = table_bir & 0x7;
+    uint32_t table_offset = table_bir & ~0x7;
+
+    uint8_t* table_map = paging_map_mmio(((device->bars[bir] & 0x6) == 0x4 ? device->bars[bir] | ((uint64_t)device->bars[bir+1] << 32) : device->bars[bir]) & ~0xFULL, table_offset + table_size * 16);
+    uint8_t* table_base = table_map + table_offset;
+
+    uint32_t msg_addr = 0xFEE00000 | (0 << 12); // 0 => apic id (only bsp for now)
+
+    count = min(count, table_size);
+
+    for(uint32_t i = 0; i < count; i++){
+        vectors_out[i] = alloc_irq_vector();
+        idt_register_irq_handler(vectors_out[i], NULL);
+
+        uint16_t msg_data = vectors_out[i];
+
+        volatile uint32_t* entry = (volatile uint32_t*)((uint8_t*)table_base + i * 16);
+        entry[0] = msg_addr;
+        entry[1] = 0;          // upper 32 bits of 64-bit address (0 for BSP)
+        entry[2] = msg_data;
+        entry[3] = 0;
+    }
+
+    mc = pci_read16(device->bus, device->device, device->function, device->msix_cap_offset + 2, virt);
+
+    mc |= (1 << 15);
+    pci_write16(device->bus, device->device, device->function, device->msix_cap_offset + 2, mc, virt);
+
+    paging_unmap_mmio(table_map, table_offset + table_size * 16);
+
+    if(g_pci_use_ecam)
+        paging_unmap_mmio(virt, 4096);
+
+    return 0;
 }
 
 static pci_device_t pci_scan_function(uint8_t bus, uint8_t device, uint8_t func){
@@ -594,6 +722,7 @@ static pci_device_t pci_scan_function(uint8_t bus, uint8_t device, uint8_t func)
 
     pci_device_t pci_device;
     memset(&pci_device, 0, sizeof(pci_device));
+    pci_device.phys = phys;
     uint16_t vendor_id = pci_read16(bus, device, func, 0x00, virt);
     if(vendor_id == 0xFFFF){
         pci_device.vendor_id = 0xFFFF;
@@ -607,7 +736,8 @@ static pci_device_t pci_scan_function(uint8_t bus, uint8_t device, uint8_t func)
     pci_device.device = device;
     pci_device.function = func;
 
-    pci_device.device_id  = pci_read16(bus, device, func, 0x02, virt);
+    pci_device.device_id   = pci_read16(bus, device, func, 0x02, virt);
+    pci_device.status      = pci_read16(bus, device, func, 0x06, virt);
     pci_device.revision    = pci_read8 (bus, device, func, 0x08, virt);
     pci_device.prog_if     = pci_read8 (bus, device, func, 0x09, virt);
     pci_device.subclass    = pci_read8 (bus, device, func, 0x0A, virt);
@@ -627,17 +757,35 @@ static pci_device_t pci_scan_function(uint8_t bus, uint8_t device, uint8_t func)
         return pci_device;
     }
 
-    for(uint8_t i = 0; i < 6; i++){
-        pci_device.bars[i] = pci_read32(bus, device, func, 0x10 + i*4, virt);
-    }
+    if((pci_device.header_type & 0x7F) == 0x0){
+        for(uint8_t i = 0; i < 6; i++){
+            pci_device.bars[i] = pci_read32(bus, device, func, 0x10 + i*4, virt);
+        }
 
-    pci_device.irq_line = pci_read8(bus, device, func, 0x3C, virt);
-    pci_device.irq_pin  = pci_read8(bus, device, func, 0x3D, virt);
+        pci_device.irq_line = pci_read8(bus, device, func, 0x3C, virt);
+        pci_device.irq_pin  = pci_read8(bus, device, func, 0x3D, virt);
+
+        if (pci_device.status & (1 << 4)){
+            uint8_t cap_pointer = pci_read8(bus, device, func, 0x34, virt);
+
+            while(cap_pointer != 0){
+                uint8_t cap_id = pci_read8(bus, device, func, cap_pointer & 0xFC, virt);
+                if(cap_id == 0x05){
+                    pci_device.msi_cap_offset = cap_pointer;
+                }
+                else if(cap_id == 0x11){
+                    pci_device.msix_cap_offset = cap_pointer;
+                }
+                cap_pointer = pci_read8(bus, device, func, (cap_pointer & 0xFC) + 1, virt);
+            }
+        }
+    }
 
     if(pci_devices_count < PCI_MAX_DEVICES){
         pci_devices[pci_devices_count] = pci_device;
         pci_devices_count++;
     }
+
 
     char name[128];
 
@@ -694,7 +842,7 @@ void pci_init(void)
 
     KLOG_INFO("PCI", "%u devices found", pci_devices_count);
 
-    for(int i = 0; i < pci_devices_count; i++)
+    for(uint32_t i = 0; i < pci_devices_count; i++)
         pci_match_driver(&pci_devices[i]);
 }
 
@@ -704,8 +852,8 @@ void pci_register_driver(pci_driver_t* driver){
     pci_drivers[pci_drivers_count] = driver;
     pci_drivers_count++;
 
-    for(int i = 0; i < pci_devices_count; i++){
-        for (int k = 0; driver->id_table[k].vendor_id != 0 || driver->id_table[k].device_id != 0; k++) {
+    for(uint32_t i = 0; i < pci_devices_count; i++){
+        for (uint32_t k = 0; driver->id_table[k].vendor_id != 0 || driver->id_table[k].device_id != 0; k++) {
             if(driver->id_table[k].vendor_id == pci_devices[i].vendor_id && driver->id_table[k].device_id == pci_devices[i].device_id){
                 driver->probe(&pci_devices[i]);
                 break;
@@ -715,8 +863,8 @@ void pci_register_driver(pci_driver_t* driver){
 }
 
 void pci_match_driver(pci_device_t* device){
-    for(int i = 0; i < pci_drivers_count; i++){
-        for (int k = 0; pci_drivers[i]->id_table[k].vendor_id != 0 || pci_drivers[i]->id_table[k].device_id != 0; k++) {
+    for(uint32_t i = 0; i < pci_drivers_count; i++){
+        for (uint32_t k = 0; pci_drivers[i]->id_table[k].vendor_id != 0 || pci_drivers[i]->id_table[k].device_id != 0; k++) {
             if(pci_drivers[i]->id_table[k].vendor_id == device->vendor_id && pci_drivers[i]->id_table[k].device_id == device->device_id){
                 pci_drivers[i]->probe(device);
             }

@@ -231,7 +231,7 @@ void apic_init(void) {
         ioapic_init_one(i);
 
     // Unmask the IRQs actually used by existing drivers
-    ioapic_unmask_irq(1);   // keyboard
+    ioapic_unmask_irq(1);   // PS/2 keyboard
     ioapic_unmask_irq(8);   // RTC
     ioapic_unmask_irq(12);  // PS/2 mouse
 

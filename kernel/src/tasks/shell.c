@@ -6,6 +6,8 @@
 
 #include "acpi/acpi.h"
 
+#include "input/input_subsys.h"
+
 #include "drivers/ps2/ps2_keyboard.h"
 #include "drivers/video.h"
 #include "drivers/rtc.h"
@@ -24,6 +26,8 @@
 
 #define SC_UP   0x48
 #define SC_DOWN 0x50
+
+extern semaphore_t kb_sem;
 
 /* ------------------------------------------------------------------ */
 /* History                                                              */
@@ -85,12 +89,10 @@ static int shell_readline(char *buf, int max) {
 
     while (1) {
         key_event_t ev;
-        while (!ps2_keyboard_get_event(&ev)) {
-            if (cpu_local[cpu_id].current_task) {
-                kb_waiter = cpu_local[cpu_id].current_task;
-                task_block_local();
-            }
-        }
+        sem_wait(&kb_sem);
+
+        if(!input_key_event_read(&ev))
+            continue;
 
         if (ev.ascii == '\n') {
             cursor_hide();

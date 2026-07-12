@@ -1,6 +1,76 @@
 #include "graphics/gfx.h"
 #include "fonts/dos_vga_437.h"
 
+// Arrow cursor (16 wide x 16 tall): 0=transparent, 1=white, 2=black outline
+#define CURSOR_W 16
+#define CURSOR_H 16
+
+static const uint8_t cursor_bitmap[CURSOR_H][CURSOR_W] = {
+    {1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {1,1,2,0,0,0,0,0,0,0,0,0,0,0,0,0},
+    {1,1,1,2,0,0,0,0,0,0,0,0,0,0,0,0},
+    {1,1,1,1,2,0,0,0,0,0,0,0,0,0,0,0},
+    {1,1,1,1,1,2,0,0,0,0,0,0,0,0,0,0},
+    {1,1,1,1,1,1,2,0,0,0,0,0,0,0,0,0},
+    {1,1,1,1,1,1,1,2,0,0,0,0,0,0,0,0},
+    {1,1,1,1,1,1,1,1,2,0,0,0,0,0,0,0},
+    {1,1,1,1,1,1,1,1,1,2,0,0,0,0,0,0},
+    {1,1,1,1,1,2,2,2,2,2,0,0,0,0,0,0},
+    {1,1,2,1,1,2,0,0,0,0,0,0,0,0,0,0},
+    {1,2,2,2,1,1,2,0,0,0,0,0,0,0,0,0},
+    {2,2,0,2,1,1,2,2,0,0,0,0,0,0,0,0},
+    {0,0,0,0,2,1,1,2,0,0,0,0,0,0,0,0},
+    {0,0,0,0,2,1,1,2,0,0,0,0,0,0,0,0},
+    {0,0,0,0,2,2,2,2,0,0,0,0,0,0,0,0}
+};
+
+static uint32_t cursor_bg[CURSOR_H * CURSOR_W];
+static int32_t  cursor_saved_x = -1;
+static int32_t  cursor_saved_y = -1;
+
+void gfx_save_cursor_bg(int32_t x, int32_t y) {
+    uint32_t *fb = (uint32_t *)video_info.virt_addr;
+    for (int row = 0; row < CURSOR_H; row++) {
+        for (int col = 0; col < CURSOR_W; col++) {
+            int px = x + col, py = y + row;
+            if (px >= 0 && px < video_info.width &&
+                py >= 0 && py < video_info.height)
+                cursor_bg[row * CURSOR_W + col] = fb[py * (video_info.pitch / (video_info.bits / 8)) + px];
+            else
+                cursor_bg[row * CURSOR_W + col] = 0;
+        }
+    }
+    cursor_saved_x = x;
+    cursor_saved_y = y;
+}
+
+void gfx_restore_cursor_bg() {
+    if (cursor_saved_x < 0) return;
+    uint32_t *fb = (uint32_t *)video_info.virt_addr;
+    for (int row = 0; row < CURSOR_H; row++) {
+        for (int col = 0; col < CURSOR_W; col++) {
+            int px = cursor_saved_x + col, py = cursor_saved_y + row;
+            if (px >= 0 && px < video_info.width &&
+                py >= 0 && py < video_info.height)
+                fb[py * (video_info.pitch / (video_info.bits / 8)) + px] = cursor_bg[row * CURSOR_W + col];
+        }
+    }
+}
+
+void gfx_draw_cursor(int32_t x, int32_t y) {
+    uint32_t *fb = (uint32_t *)video_info.virt_addr;
+    for (int row = 0; row < CURSOR_H; row++) {
+        for (int col = 0; col < CURSOR_W; col++) {
+            uint8_t pixel = cursor_bitmap[row][col];
+            if (pixel == 0) continue;
+            int px = x + col, py = y + row;
+            if (px < 0 || px >= video_info.width ||
+                py < 0 || py >= video_info.height) continue;
+            fb[py * (video_info.pitch / (video_info.bits / 8)) + px] = (pixel == 1) ? 0xFFFFFF : 0x000000;
+        }
+    }
+}
+
 void gfx_draw_pixel(int32_t x, int32_t y, uint32_t r, uint32_t g, uint32_t b)
 {
 

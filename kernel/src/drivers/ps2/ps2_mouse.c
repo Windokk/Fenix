@@ -1,5 +1,7 @@
 #include "drivers/ps2/ps2_mouse.h"
 
+#include "input/input_subsys.h"
+
 #include "interrupts/pic.h"
 #include "interrupts/idt.h"
 
@@ -9,83 +11,6 @@
 #include "graphics/gfx.h"
 
 #include "stdio.h"
-
-int32_t mouse_x = 0;
-int32_t mouse_y = 0;
-
-static uint8_t mouse_buttons = 0;
-
-// ---------------------------------------------------------------------------
-// Arrow cursor (16 wide x 16 tall): 0=transparent, 1=white, 2=black outline
-// ---------------------------------------------------------------------------
-#define CURSOR_W 16
-#define CURSOR_H 16
-
-static const uint8_t cursor_bitmap[CURSOR_H][CURSOR_W] = {
-    {1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {1,1,2,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {1,1,1,2,0,0,0,0,0,0,0,0,0,0,0,0},
-    {1,1,1,1,2,0,0,0,0,0,0,0,0,0,0,0},
-    {1,1,1,1,1,2,0,0,0,0,0,0,0,0,0,0},
-    {1,1,1,1,1,1,2,0,0,0,0,0,0,0,0,0},
-    {1,1,1,1,1,1,1,2,0,0,0,0,0,0,0,0},
-    {1,1,1,1,1,1,1,1,2,0,0,0,0,0,0,0},
-    {1,1,1,1,1,1,1,1,1,2,0,0,0,0,0,0},
-    {1,1,1,1,1,2,2,2,2,2,0,0,0,0,0,0},
-    {1,1,2,1,1,2,0,0,0,0,0,0,0,0,0,0},
-    {1,2,2,2,1,1,2,0,0,0,0,0,0,0,0,0},
-    {2,2,0,2,1,1,2,2,0,0,0,0,0,0,0,0},
-    {0,0,0,0,2,1,1,2,0,0,0,0,0,0,0,0},
-    {0,0,0,0,2,1,1,2,0,0,0,0,0,0,0,0},
-    {0,0,0,0,2,2,2,2,0,0,0,0,0,0,0,0}
-};
-
-static uint32_t cursor_bg[CURSOR_H * CURSOR_W];
-static int32_t  cursor_saved_x = -1;
-static int32_t  cursor_saved_y = -1;
-
-static void cursor_save_bg(int32_t x, int32_t y) {
-    uint32_t *fb = (uint32_t *)video_info.virt_addr;
-    for (int row = 0; row < CURSOR_H; row++) {
-        for (int col = 0; col < CURSOR_W; col++) {
-            int px = x + col, py = y + row;
-            if (px >= 0 && px < video_info.width &&
-                py >= 0 && py < video_info.height)
-                cursor_bg[row * CURSOR_W + col] = fb[py * (video_info.pitch / (video_info.bits / 8)) + px];
-            else
-                cursor_bg[row * CURSOR_W + col] = 0;
-        }
-    }
-    cursor_saved_x = x;
-    cursor_saved_y = y;
-}
-
-static void cursor_restore_bg(void) {
-    if (cursor_saved_x < 0) return;
-    uint32_t *fb = (uint32_t *)video_info.virt_addr;
-    for (int row = 0; row < CURSOR_H; row++) {
-        for (int col = 0; col < CURSOR_W; col++) {
-            int px = cursor_saved_x + col, py = cursor_saved_y + row;
-            if (px >= 0 && px < video_info.width &&
-                py >= 0 && py < video_info.height)
-                fb[py * (video_info.pitch / (video_info.bits / 8)) + px] = cursor_bg[row * CURSOR_W + col];
-        }
-    }
-}
-
-static void cursor_draw(int32_t x, int32_t y) {
-    uint32_t *fb = (uint32_t *)video_info.virt_addr;
-    for (int row = 0; row < CURSOR_H; row++) {
-        for (int col = 0; col < CURSOR_W; col++) {
-            uint8_t pixel = cursor_bitmap[row][col];
-            if (pixel == 0) continue;
-            int px = x + col, py = y + row;
-            if (px < 0 || px >= video_info.width ||
-                py < 0 || py >= video_info.height) continue;
-            fb[py * (video_info.pitch / (video_info.bits / 8)) + px] = (pixel == 1) ? 0xFFFFFF : 0x000000;
-        }
-    }
-}
 
 // ---------------------------------------------------------------------------
 
@@ -174,29 +99,33 @@ void ps2_mouse_handle_irq(void) {
                           ? (int32_t)(mouse_packet[2] | 0xFFFFFF00)
                           : (int32_t)mouse_packet[2];
 
-        mouse_buttons = mouse_packet[0] & 0x07;
+        input_mouse_move(delta_x, delta_y);
 
-        int32_t new_x = mouse_x + delta_x;
-        int32_t new_y = mouse_y - delta_y;
+        uint8_t mouse_buttons = mouse_packet[0] & 0x07;
 
-        if (new_x < 0) new_x = 0;
-        if (new_y < 0) new_y = 0;
-        if (new_x >= (int32_t)video_info.width)  new_x = video_info.width  - 1;
-        if (new_y >= (int32_t)video_info.height) new_y = video_info.height - 1;
+        if(mouse_buttons & (1 << 0)){
+            input_mouse_button(0, true);
+        }
+        else{
+            input_mouse_button(0, false);
+        }
 
-        cursor_restore_bg();
 
-        mouse_x = new_x;
-        mouse_y = new_y;
+        if(mouse_buttons & (1 << 1)){
+            input_mouse_button(1, true);
+        }
+        else{
+            input_mouse_button(1, false);
+        }
 
-        cursor_save_bg(mouse_x, mouse_y);
-        cursor_draw(mouse_x, mouse_y);
+
+        if(mouse_buttons & (1 << 2)){
+            input_mouse_button(2, true);
+        }
+        else{
+            input_mouse_button(2, false);
+        }
     }
 
     pic_send_eoi(PIC_PS2_MOUSE_INTERRUPT);
 }
-
-uint8_t ps2_mouse_button_state(void)  { return mouse_buttons; }
-int     ps2_mouse_left_pressed(void)  { return (mouse_buttons & 0x01) != 0; }
-int     ps2_mouse_right_pressed(void) { return (mouse_buttons & 0x02) != 0; }
-int     ps2_mouse_middle_pressed(void){ return (mouse_buttons & 0x04) != 0; }

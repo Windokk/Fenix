@@ -76,6 +76,8 @@ typedef unsigned long size_t;
     __typeof__ (b) _b = (b); \
     _a < _b ? _a : _b; })
 
+#define CLAMP(x, min, max) ((x) < (min) ? (min) : ((x) > (max) ? (max) : (x)))
+
 #define SQRT_SINGLE(num) ({              \
     float result;                        \
     __asm__(                             \
@@ -121,46 +123,18 @@ extern void restore_interrupts(uintptr_t);
 extern uintptr_t disable_interrupts();
 
 #define KLOG_INFO(tag, fmt, ...)  do { \
-        uintptr_t _flags = disable_interrupts(); \
-        lock(&fb_lock); \
-        fb_set_color(80, 210, 90); \
-        printf("[" tag " INFO] "); \
-        fb_set_color(255, 255, 255); \
-        printf(fmt "\n", ##__VA_ARGS__); \
-        unlock(&fb_lock); \
-        restore_interrupts(_flags); \
+        klog_print(80, 210, 90, "[" tag " INFO] ", fmt "\n", ##__VA_ARGS__); \
     } while(0)
 
 #define KLOG_WARN(tag, fmt, ...)  do { \
-        uintptr_t _flags = disable_interrupts(); \
-        lock(&fb_lock); \
-        fb_set_color(255, 180, 0); \
-        printf("[" tag " WARN] "); \
-        fb_set_color(255, 255, 255); \
-        printf(fmt "\n", ##__VA_ARGS__); \
-        unlock(&fb_lock); \
-        restore_interrupts(_flags); \
+        klog_print(255, 180, 0, "[" tag " WARN] ", fmt "\n", ##__VA_ARGS__); \
     } while(0)
 
 #define KLOG_ERROR(tag, fmt, ...) do { \
-        uintptr_t _flags = disable_interrupts(); \
-        lock(&fb_lock); \
-        fb_set_color(255, 60, 60); \
-        printf("[" tag " ERROR] "); \
-        fb_set_color(255, 255, 255); \
-        printf(fmt "\n", ##__VA_ARGS__); \
-        unlock(&fb_lock); \
-        restore_interrupts(_flags); \
+        klog_print(255, 60, 60, "[" tag " ERROR] ", fmt "\n", ##__VA_ARGS__); \
     } while(0)
 
 #define KLOG_FATAL(tag, fmt, ...)  do { \
-        uintptr_t _flags = disable_interrupts(); \
-        lock(&fb_lock); \
-        fb_set_color(255, 0, 0); \
-        printf("[" tag " FATAL] "); \
-        fb_set_color(255, 255, 255); \
-        printf(fmt "\n", ##__VA_ARGS__); \
-        unlock(&fb_lock); \
-        restore_interrupts(_flags); \
+        klog_print(255, 0, 0, "[" tag " FATAL] ", fmt "\n", ##__VA_ARGS__); \
         HALT_AND_CATCH_FIRE("[" tag " FATAL] " fmt, ##__VA_ARGS__); \
     } while(0)

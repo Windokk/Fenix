@@ -139,9 +139,6 @@ void ap_main(uint64_t ap_stack_top) {
 
     __asm__ volatile("ltr %0" : : "r"((uint16_t)0x28));
 
-    __atomic_fetch_add(&g_ap_online_count, 1, __ATOMIC_SEQ_CST);
-    KLOG_INFO("SMP", "AP online  APIC_ID=0x%X", (int)(lapic_read(LAPIC_ID) >> 24) & 0xFF);
-
     cpu_local[cpu_self_id()].cpu_id = cpu_self_id();
 
     if(g_ap_online_count == g_acpi.cpu_count){
@@ -155,6 +152,9 @@ void ap_main(uint64_t ap_stack_top) {
 
     KLOG_INFO("SMP", "Task system ready for AP %u", cpu_self_id());
 
+    __atomic_fetch_add(&g_ap_online_count, 1, __ATOMIC_SEQ_CST);
+    KLOG_INFO("SMP", "AP online  APIC_ID=0x%X", (int)(lapic_read(LAPIC_ID) >> 24) & 0xFF);
+    
     scheduler_start_local();
 
     // Never reached

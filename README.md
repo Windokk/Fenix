@@ -27,7 +27,7 @@
 
 ## Roadmap (Last Updated May 2026)
 
-### 0.1 - Foundation : Done ■■■■■■■■■■ 100%
+### 0.1 - Foundation
 - [x] Multiboot2 boot via GRUB 2
 - [x] 32-bit → 64-bit long mode transition
 - [x] Higher-half kernel mapping (PML4 paging)
@@ -44,27 +44,27 @@
 - [x] Graphics primitives (pixel, line, rectangle, filled rectangle, circle, filled circle)
 - [x] Bitmap font (NotoSans / Perfect_DOS_VGA_437, 16 px, 4 bpp)
 
-### 0.2 - Visible Kernel : Done ■■■■■■■■■■ 100%
+### 0.2 - Visible Kernel
 - [x] Text rendering (`gfx_draw_text` using bitmap font)
 - [x] `printf` output redirected to framebuffer (alongside serial)
 - [x] RTC driver (read real-time clock)
 - [x] PIT driver (timer interrupts, basic tick counter)
 - [x] Basic on-screen debug console (scrollable text output)
 
-### 0.3 - Interactive Shell : Done ■■■■■■■▢▢▢ 70%
+### 0.3 - Interactive Kernel Shell
 - [x] Keyboard input line editor (backspace, cursor, history)
 - [x] Simple command parser / REPL
 - [x] Basic built-in commands (`clear`, `help`, `mem`, `time`, `echo`, `shutdown`, `reboot`)
 - [ ] Mouse integration in UI (clickable elements)
 
-### 0.4 - Multitasking : Done ■■■■■■■■■■ 100%
+### 0.4 - Multitasking : Done
 - [x] Task control block (TCB) and kernel threads
 - [x] Context switch (register save/restore, TSS stack swap)
 - [x] Round-robin scheduler with `sleep` / yield
 - [x] Mutex (spin-yield, owner tracking, waiter queue)
 - [x] Semaphore (P/V, spin-yield)
 
-### 0.5 - ACPI & Advanced Interrupts : Done ■■■■■■■■■■ 100%
+### 0.5 - ACPI & Advanced Interrupts
 - [x] RSDP discovery from Multiboot2 tags (ACPI 1.0 RSDT + 2.0 XSDT)
 - [x] MADT parsing: LAPIC, I/O APIC, interrupt source overrides (ISOs), LAPIC NMI
 - [x] FADT parsing: PM1 control / event blocks, reset register, SCI IRQ
@@ -78,7 +78,7 @@
 - [x] SCI IRQ routing through I/O APIC, PM1 fixed-event handler
 - [x] Graceful fallback to legacy 8259 PIC when APIC is unavailable
 
-### 0.6 - Kernel Hardening & Observability : Done ■■■■■■■■■■ 100%
+### 0.6 - Kernel Hardening & Observability
 - [x] LAPIC timer calibration against ACPI PM Timer => preemptive scheduling tick
 - [x] HPET driver (high-resolution monotonic clock source)
 - [x] Kernel stack-canary support (magic value at stack bottom, checked on yield/exit)
@@ -87,12 +87,12 @@
 - [x] Improved debug console: filter by subsystem, severity levels
 - [x] Kernel self-test framework (run at boot, report via serial)
 
-### 0.6.1 - UEFI Support : Done ■■■■■■■■■■ 100%
+### 0.6.1 - UEFI Support
 - [x] Add second multiboot header for uefi
 - [x] Add specific loader for efi64 : starting in long mode, setting up paging, jumping to long_mode_start
 - [x] Modify grub.cfg to assure efi video mode support
 
-### 0.7 - SMP & CPU Topology : Done ■■■■■■■■■■ 100%
+### 0.7 - SMP & CPU Topology
 - [x] ACPI CPU enumeration from MADT (all enabled LAPICs)
 - [x] AP startup sequence (INIT–SIPI–SIPI via LAPIC ICR)
 - [x] Per-CPU GDT / TSS / IDT and stack
@@ -104,9 +104,9 @@
 - [x] ECAM-based PCIe config space walker
 - [x] PCI device/vendor database (compact table in kernel)
 - [x] Generic PCI driver model (probe / remove callbacks)
-- [ ] MSI / MSI-X allocation (vector management, LAPIC targeting)
+- [x] MSI / MSI-X allocation (vector management, LAPIC targeting)
 - [ ] virtio-pci transport (QEMU-first: blk, net, gpu)
-- [ ] PCI USB (xHCI) driver
+- [x] PCI xHCI controller driver (HID USB)
 
 ### 0.9 - Userspace : Done ▢▢▢▢▢▢▢▢▢▢ 0%
 - [ ] Syscall interface (`syscall` / `sysret`, syscall dispatch table)
