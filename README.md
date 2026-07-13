@@ -100,7 +100,7 @@
 - [x] Spinlock primitive (distinct from mutex - for IRQ-context use)
 - [x] `cpuid`-based feature detection
 
-### 0.8 - PCI / PCIe Enumeration : Done ■■■■■■▢▢▢▢ 60%
+### 0.8 - PCI / PCIe Enumeration
 - [x] ECAM-based PCIe config space walker
 - [x] PCI device/vendor database (compact table in kernel)
 - [x] Generic PCI driver model (probe / remove callbacks)
@@ -108,21 +108,21 @@
 - [ ] virtio-pci transport (QEMU-first: blk, net, gpu)
 - [x] PCI xHCI controller driver (HID USB)
 
-### 0.9 - Userspace : Done ▢▢▢▢▢▢▢▢▢▢ 0%
+### 0.9 - Userspace
 - [ ] Syscall interface (`syscall` / `sysret`, syscall dispatch table)
 - [ ] Per-process page tables (CR3 switch on context switch)
 - [ ] User-mode task creation (ring 3 jump, user stack setup)
 - [ ] Minimal user-mode C runtime (stack frame, `main` wrapper)
 - [ ] `brk` / `mmap` anonymous memory for user heap
 
-### 0.9.5 - Storage & Filesystem : Done ▢▢▢▢▢▢▢▢▢▢ 0%
+### 0.9.5 - Storage & Filesystem
 - [ ] ATA PIO driver (or virtio-blk for QEMU)
 - [ ] AHCI driver (SATA, DMA transfers)
 - [ ] FAT32 filesystem (read-only first, then writable)
 - [ ] VFS abstraction layer (inode, dentry, file-ops)
 - [ ] Simple ramfs / initrd for early boot
 
-### 1.0 - POSIX & Beyond : Done ▢▢▢▢▢▢▢▢▢▢ 0%
+### 1.0 - POSIX & Beyond
 - [ ] `fork` / `exec` / `waitpid`
 - [ ] File descriptors (`open`, `read`, `write`, `close`, `dup2`)
 - [ ] ELF binary loader (static executables)
