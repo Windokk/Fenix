@@ -70,22 +70,20 @@ static const char *exception_strs[] = {
 };
 
 static void config_idt_vector(uint16_t n, uint64_t handler) {
-    idt[n].selector = 0x08;
-    idt[n].ptr_low  = (uint16_t) handler;
-    idt[n].ptr_mid  = (uint16_t) (handler >> 16);
-    idt[n].ptr_high = (uint32_t) (handler >> 32);
+    idt[n].selector    = 0x08;
+    idt[n].offset_low  = (uint16_t) handler;
+    idt[n].offset_mid  = (uint16_t) (handler >> 16);
+    idt[n].offset_high = (uint32_t) (handler >> 32);
 
-    idt[n].opts.stack_OK  = 0; // do not switch stack
-    idt[n].opts.present   = 1; // are we valid
-    idt[n].opts.DPL       = 3; // priv to call int handler
-    idt[n].opts.gate_type = 0x01; // 1 = interrupt, 2 = trap
-    idt[n].opts.ONES      = 0x07;
-    idt[n].opts.ZERO      = 0;
-    idt[n].opts.ZEROS     = 0;
+    idt[n].ist.ist      = 0; // do not switch stack
+    idt[n].ist.reserved = 0;
 
-    idt[n]._1_reserved = 0;
-    idt[n]._2_reserved = 0;
-    idt[n]._type       = 0;
+    idt[n].type_attr.present   = 1;    // valid
+    idt[n].type_attr.dpl       = 0;    // kernel only
+    idt[n].type_attr.gate_type = 0xE;  // 0xE = interrupt gate, 0xF = trap gate
+    idt[n].type_attr.zero      = 0;
+
+    idt[n].reserved = 0;
 }
 
 void idt_init() {
