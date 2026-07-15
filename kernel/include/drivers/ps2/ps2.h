@@ -12,7 +12,7 @@
 #define PS2_STATUS_OUTPUT_FULL  0x01  // Output buffer status
 #define PS2_STATUS_INPUT_FULL   0x02  // Input buffer status
 
-// Timeouts (arbitrary, adjust as needed for your system)
+// Timeouts (arbitrary)
 #define PS2_TIMEOUT 100000
 
 // PS2 Commands

@@ -66,6 +66,15 @@ void ps2_keyboard_enable(void) {
 }
 
 void ps2_keyboard_handle_irq(void) {
+    for (int i = 0; i < PS2_TIMEOUT; i++) {
+        if (inb(0x64) & PS2_STATUS_OUTPUT_FULL) {
+            break;
+        }
+        else if(i == (PS2_TIMEOUT - 1)){
+            return;
+        }
+        asm volatile("pause");
+    }
     uint8_t raw = inb(0x60);
 
     bool released = (raw & SC_RELEASE) != 0;
@@ -85,15 +94,19 @@ void ps2_keyboard_handle_irq(void) {
     /* Update modifier state */
     if (sc == SC_LSHIFT){
         lshift_held = !released;
-    }if(sc == SC_RSHIFT) {
+    }
+    else if(sc == SC_RSHIFT) {
         rshift_held = !released;
-    } else if (sc == SC_CTRL) {
+    } 
+    else if (sc == SC_CTRL) {
         lctrl_held = !released;
         rctrl_held = !released;
-    } else if (sc == SC_ALT) {
+    } 
+    else if (sc == SC_ALT) {
         lalt_held = !released;
         ralt_held = !released;
-    } else if (sc == SC_CAPSLOCK && !released) {
+    } 
+    else if (sc == SC_CAPSLOCK && !released) {
         caps_lock_on = !caps_lock_on;
     }
 

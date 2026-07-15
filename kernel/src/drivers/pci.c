@@ -725,23 +725,23 @@ static pci_device_t pci_scan_function(uint8_t bus, uint8_t device, uint8_t func)
     pci_device.phys = phys;
     uint16_t vendor_id = pci_read16(bus, device, func, 0x00, virt);
     if(vendor_id == 0xFFFF){
-        pci_device.vendor_id = 0xFFFF;
+        pci_device.id.vendor_id = 0xFFFF;
         if(g_pci_use_ecam)
             paging_unmap_mmio(virt, 4096);
         return pci_device;
     }
 
-    pci_device.vendor_id = vendor_id;
+    pci_device.id.vendor_id = vendor_id;
     pci_device.bus = bus;
     pci_device.device = device;
     pci_device.function = func;
 
-    pci_device.device_id   = pci_read16(bus, device, func, 0x02, virt);
+    pci_device.id.device_id   = pci_read16(bus, device, func, 0x02, virt);
     pci_device.status      = pci_read16(bus, device, func, 0x06, virt);
     pci_device.revision    = pci_read8 (bus, device, func, 0x08, virt);
-    pci_device.prog_if     = pci_read8 (bus, device, func, 0x09, virt);
-    pci_device.subclass    = pci_read8 (bus, device, func, 0x0A, virt);
-    pci_device.class_code  = pci_read8 (bus, device, func, 0x0B, virt);
+    pci_device.code.prog_if     = pci_read8 (bus, device, func, 0x09, virt);
+    pci_device.code.subclass    = pci_read8 (bus, device, func, 0x0A, virt);
+    pci_device.code.class  = pci_read8 (bus, device, func, 0x0B, virt);
     pci_device.header_type = pci_read8 (bus, device, func, 0x0E, virt);
 
     if((pci_device.header_type & 0x7F) == 0x01){
@@ -789,7 +789,7 @@ static pci_device_t pci_scan_function(uint8_t bus, uint8_t device, uint8_t func)
 
     char name[128];
 
-    get_pci_device_full_name(vendor_id, pci_device.class_code, pci_device.subclass, pci_device.prog_if, name, sizeof(name));
+    get_pci_device_full_name(vendor_id, pci_device.code.class, pci_device.code.subclass, pci_device.code.prog_if, name, sizeof(name));
 
     KLOG_INFO("PCI", "%llX:%llX.%llX : %s",
            bus, device, func, name);
@@ -802,7 +802,7 @@ static pci_device_t pci_scan_function(uint8_t bus, uint8_t device, uint8_t func)
 
 static void pci_scan_device(uint8_t bus, uint8_t device){
     pci_device_t function0 = pci_scan_function(bus, device, 0);
-    if(function0.vendor_id == 0xFFFF){
+    if(function0.id.vendor_id == 0xFFFF){
         return;
     }
 
@@ -853,21 +853,33 @@ void pci_register_driver(pci_driver_t* driver){
     pci_drivers_count++;
 
     for(uint32_t i = 0; i < pci_devices_count; i++){
+        bool id_match = false;
+        bool code_match = false;
         for (uint32_t k = 0; driver->id_table[k].vendor_id != 0 || driver->id_table[k].device_id != 0; k++) {
-            if(driver->id_table[k].vendor_id == pci_devices[i].vendor_id && driver->id_table[k].device_id == pci_devices[i].device_id){
-                driver->probe(&pci_devices[i]);
-                break;
-            }
+            id_match = driver->id_table[k].vendor_id == pci_devices[i].id.vendor_id && driver->id_table[k].device_id == pci_devices[i].id.device_id;
+        }
+        for (uint32_t k = 0; driver->code_table[k].class != 0 || driver->code_table[k].subclass != 0 || driver->code_table[k].prog_if != 0; k++) {
+            code_match = driver->code_table[k].class == pci_devices[i].code.class && driver->code_table[k].subclass == pci_devices[i].code.subclass && driver->code_table[k].prog_if == pci_devices[i].code.prog_if;
+        }
+        if(id_match || code_match){
+            driver->probe(&pci_devices[i]);
+            break;
         }
     }
 }
 
 void pci_match_driver(pci_device_t* device){
     for(uint32_t i = 0; i < pci_drivers_count; i++){
+        bool id_match = false;
+        bool code_match = false;
         for (uint32_t k = 0; pci_drivers[i]->id_table[k].vendor_id != 0 || pci_drivers[i]->id_table[k].device_id != 0; k++) {
-            if(pci_drivers[i]->id_table[k].vendor_id == device->vendor_id && pci_drivers[i]->id_table[k].device_id == device->device_id){
-                pci_drivers[i]->probe(device);
-            }
+            id_match = pci_drivers[i]->id_table[k].vendor_id == device->id.vendor_id && pci_drivers[i]->id_table[k].device_id == device->id.device_id;
+        }
+        for (uint32_t k = 0; pci_drivers[i]->code_table[k].class != 0 || pci_drivers[i]->code_table[k].subclass != 0 || pci_drivers[i]->code_table[k].prog_if != 0; k++) {
+            code_match = pci_drivers[i]->code_table[k].class == device->code.class && pci_drivers[i]->code_table[k].subclass == device->code.subclass && pci_drivers[i]->code_table[k].prog_if == device->code.prog_if;
+        }
+        if(id_match || code_match){
+            pci_drivers[i]->probe(device);
         }
     }
 }

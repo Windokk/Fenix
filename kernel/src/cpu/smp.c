@@ -11,6 +11,7 @@
 #include "tasks/task.h"
 
 volatile uint32_t g_ap_online_count = 1;
+volatile uint32_t g_ap_ready_count = 1;
 
 tss_t       cpu_tss[MAX_CPUS];
 cpu_gdt_t   cpu_gdt[MAX_CPUS];
@@ -22,7 +23,7 @@ void smp_start_ap(uint8_t apic_id, uint8_t trampoline_page) {
     wait_ms(10);               // Intel SDM : 10ms
     lapic_send_sipi(apic_id, trampoline_page);
     wait_ms(1);
-    if (g_ap_online_count < g_acpi.cpu_count) {
+    if (g_ap_ready_count < g_acpi.cpu_count) {
         lapic_send_sipi(apic_id, trampoline_page);
         wait_ms(1);
     }
@@ -114,14 +115,17 @@ static void lapic_init_ap(void) {
 }
 
 void ap_main(uint64_t ap_stack_top) {
+
+    uint32_t current_id = __atomic_fetch_add(&g_ap_online_count, 1, __ATOMIC_SEQ_CST);
+
     lapic_init_ap();
     load_idt();
 
-    create_gdt(g_ap_online_count, ap_stack_top);
+    create_gdt(current_id, ap_stack_top);
 
     gdtr_t gdtr;
     gdtr.limit = sizeof(cpu_gdt_t) - 1;
-    gdtr.base  = (uint64_t)&cpu_gdt[g_ap_online_count];
+    gdtr.base  = (uint64_t)&cpu_gdt[current_id];
     __asm__ volatile("lgdt %0" : : "m"(gdtr));
 
     __asm__ volatile(
@@ -141,7 +145,7 @@ void ap_main(uint64_t ap_stack_top) {
 
     cpu_local[cpu_self_id()].cpu_id = cpu_self_id();
 
-    if(g_ap_online_count == g_acpi.cpu_count){
+    if(current_id == g_acpi.cpu_count - 1){
         pte_user[8].all = 0;
         tlb_flush();
     }
@@ -152,9 +156,10 @@ void ap_main(uint64_t ap_stack_top) {
 
     KLOG_INFO("SMP", "Task system ready for AP %u", cpu_self_id());
 
-    __atomic_fetch_add(&g_ap_online_count, 1, __ATOMIC_SEQ_CST);
     KLOG_INFO("SMP", "AP online  APIC_ID=0x%X", (int)(lapic_read(LAPIC_ID) >> 24) & 0xFF);
     
+    __atomic_fetch_add(&g_ap_ready_count, 1, __ATOMIC_SEQ_CST);
+
     scheduler_start_local();
 
     // Never reached
@@ -198,7 +203,7 @@ uint32_t cpu_self_id()
             return i;
         }
     }
-    HALT_AND_CATCH_FIRE("cpu_self_id: APIC ID not found");
+    KLOG_FATAL("SMP","cpu_self_id: APIC ID not found");
     return 0;
 }
 

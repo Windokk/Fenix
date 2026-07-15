@@ -115,7 +115,7 @@ void gfx_draw_line(int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t r, u
         }
         ((uint32_t*)video_info.virt_addr)[y * (video_info.pitch / (video_info.bits / 8)) + x] = color;
 
-        for(int i = 0; x < xe; i++){
+        for(; x < xe; ){
             x=x+1;
             if(px<0)
             {
@@ -148,7 +148,7 @@ void gfx_draw_line(int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t r, u
         }
         ((uint32_t*)video_info.virt_addr)[y * (video_info.pitch / (video_info.bits / 8)) + x] = color;
         
-        for(int i = 0;y < ye; i++){
+        for(; y < ye; ){
             y = y + 1;
             if(py <= 0){
                 py = py + 2 * dx1;

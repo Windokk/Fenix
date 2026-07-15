@@ -31,6 +31,4 @@ void hex_to_ascii(uint64_t value, char* str, bool uppercase);
 
 void klog_print(uint8_t r, uint8_t g, uint8_t b, const char* prefix, const char* fmt, ...);
 
-
-
 extern spinlock_t fb_lock;

@@ -84,6 +84,7 @@ extern cpu_gdt_t   cpu_gdt[MAX_CPUS];
 // Initialization
 
 extern volatile uint32_t g_ap_online_count;
+extern volatile uint32_t g_ap_ready_count;
 
 extern void smp_start_ap(uint8_t apic_id, uint8_t trampoline_page);
 

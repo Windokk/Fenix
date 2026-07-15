@@ -40,10 +40,19 @@ typedef struct {
 extern pci_vendor_name_t pci_vendors_names[PCI_VENDOR_COUNT];
 extern pci_device_name_t pci_devices_names[149];
 
+typedef struct pci_device_code_t{
+    uint8_t  class, subclass, prog_if;
+} pci_device_code_t;
+
+typedef struct pci_device_id_t{
+    uint16_t vendor_id, device_id;
+} pci_device_id_t;
+
 typedef struct pci_device_t {
     uint8_t  bus, device, function;
-    uint16_t vendor_id, device_id;
-    uint8_t  class_code, subclass, prog_if, revision;
+    pci_device_id_t id;
+    pci_device_code_t code;
+    uint8_t revision;
     uint8_t  header_type;
     uint16_t status;
     uint32_t bars[6];
@@ -54,13 +63,11 @@ typedef struct pci_device_t {
     uint64_t phys;
 } pci_device_t;
 
-typedef struct pci_device_id_t{
-    uint16_t vendor_id, device_id;
-} pci_device_id_t;
 
 typedef struct pci_driver_t{
     char* name;
     pci_device_id_t* id_table; // Sentinel-ended ({0,0})
+    pci_device_code_t* code_table; // Sentinel-ended ({0,0, 0})
     int  (*probe)(pci_device_t*);
     void (*remove)(pci_device_t*);
 } pci_driver_t;

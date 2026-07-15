@@ -73,14 +73,20 @@ static const unsigned char hid_to_ascii[256] = {
 mouse_pending_t mouse_state;
 semaphore_t mouse_sem;
 
-pci_device_id_t compat_table[2] = {
-    {0x1B36, 0x000D},
+pci_device_id_t id_compat_table[2] = {
+    {0x1B36, 0x000D}, // QEMU XHCI (only for testing)
     {0x0,    0x0}
 };
 
+pci_device_code_t code_compat_table[2] = {
+    {0x0C,   0x03,    0x30},
+    {0x0,    0x0,     0x0}
+};
+
 pci_driver_t xhci_driver = {
-    "QEMU NEC xHCI driver",
-    compat_table,
+    "xHCI driver",
+    id_compat_table,
+    code_compat_table,
     xhci_probe,
     xhci_remove
 };
@@ -156,6 +162,12 @@ static bool xhci_fetch_str(uint32_t slot_id, uint8_t index, xhci_slot_state_t ne
 }
 
 static void xhci_fetch_config(uint32_t slot_id){
+
+    if(device_desc[slot_id].product_name && device_desc[slot_id].serial_number)
+    {
+        KLOG_INFO("XHCI", "Device infos : %s (Serial number : %s)", device_desc[slot_id].product_name, device_desc[slot_id].serial_number);
+    }
+
     trb_t setup_trb = {0};
     setup_trb.parameter = 0x00FF000002000680;
     setup_trb.status = 8;
@@ -180,12 +192,12 @@ static void xhci_fetch_config(uint32_t slot_id){
 }
 
 void xhci_irq_handler(isr_ctx_t* ctx){
+    (void)ctx;
     while((evt_ring[evt_dequeue].control & 1) == evt_ccs){
         uint32_t type = (evt_ring[evt_dequeue].control >> 10) & 0x3F;
         if(type == 32){
             uint32_t slot_id = (evt_ring[evt_dequeue].control >> 24) & 0xFF;
             uint32_t completion_code = (evt_ring[evt_dequeue].status >> 24) & 0xFF;
-
             if(completion_code == 1 || completion_code == 13)
             {
                 if(slot_state[slot_id] == XHCI_SLOT_DESC_DONE){
@@ -250,13 +262,10 @@ void xhci_irq_handler(isr_ctx_t* ctx){
                     }
                     *ascii_buff = '\0';
 
-                    KLOG_INFO("XHCI", "Device infos : %s (Serial number : %s)", device_desc[slot_id].product_name, device_desc[slot_id].serial_number);
-                    
                     xhci_fetch_config(slot_id);
                 
                 }
                 else if(slot_state[slot_id] == XHCI_SLOT_CFG_DONE){
-
                     slot_maxpkt[slot_id] = (cfg_buf[slot_id][32] << 8) | cfg_buf[slot_id][31];
                     slot_protocol[slot_id] = cfg_buf[slot_id][16];
 
@@ -291,7 +300,7 @@ void xhci_irq_handler(isr_ctx_t* ctx){
 
                     input_ctx[slot_id][32] = ((cfg_buf[slot_id][33] - 1) << 16);
                     input_ctx[slot_id][33] = (slot_maxpkt[slot_id] << 16) | (7 << 3) | (3 << 1);
-                    input_ctx[slot_id][34] = TO_PHYS_U64(&ep1in_ring[slot_id][0]) & 0xFFFFFFFF | 1;
+                    input_ctx[slot_id][34] = (TO_PHYS_U64(&ep1in_ring[slot_id][0]) & 0xFFFFFFFF) | 1;
                     input_ctx[slot_id][35] = TO_PHYS_U64(&ep1in_ring[slot_id][0]) >> 32;
                     input_ctx[slot_id][36] = slot_maxpkt[slot_id];
 
@@ -304,6 +313,8 @@ void xhci_irq_handler(isr_ctx_t* ctx){
                     slot_state[slot_id] = XHCI_SLOT_EP_CONFIGURED;
                 }
                 else if(slot_state[slot_id] == XHCI_SLOT_POLLING){
+                    // TODO : Move this branch into a separate HID only file
+                    
                     // HID Devices Interrupts Handler
                     if(slot_protocol[slot_id] == 1){
                         //keyboard
@@ -457,7 +468,7 @@ void xhci_irq_handler(isr_ctx_t* ctx){
 
                     input_ctx[slot_id][16] = 0;
                     input_ctx[slot_id][17] = (64 << 16) | (4 << 3) | (3 << 1);
-                    input_ctx[slot_id][18] = TO_PHYS_U64(&ep0_ring[slot_id][0]) & 0xFFFFFFFF | 1;
+                    input_ctx[slot_id][18] = (TO_PHYS_U64(&ep0_ring[slot_id][0]) & 0xFFFFFFFF) | 1;
                     input_ctx[slot_id][19] = TO_PHYS_U64(&ep0_ring[slot_id][0]) >> 32;
                     input_ctx[slot_id][20] = 8;
 
@@ -515,7 +526,6 @@ void xhci_irq_handler(isr_ctx_t* ctx){
             }
         }
         else if(type == 34){
-            uint32_t slot_id = (evt_ring[evt_dequeue].control >> 24) & 0xFF;
             uint32_t completion_code = (evt_ring[evt_dequeue].status >> 24) & 0xFF;
 
             if(completion_code == 1 || completion_code == 13)
@@ -570,6 +580,12 @@ int xhci_probe(pci_device_t* device){
     paging_unmap_mmio(cfg, 4096);
 
     xhci_bar0 = paging_map_mmio((device->bars[0] | ((uint64_t)device->bars[1] << 32)) & ~0xFULL, 0x10000);
+
+    if(xhci_bar0 == NULL)
+    {
+        KLOG_ERROR("XHCI", "Failed to map BAR 0");
+        return -1;
+    }
 
     uint8_t caplength = *(volatile uint8_t*)(xhci_bar0 + 0x00);
     xhci_op   = xhci_bar0 + caplength;
@@ -630,6 +646,12 @@ int xhci_probe(pci_device_t* device){
             xhci_enqueue_cmd(cmd);
             pending_ports[pending_tail++] = i + 1;
         }
+
+        portsc = *(volatile uint32_t*)(xhci_op + 0x400 + i * 0x10);
+        bool csc = portsc & (1 << 17);
+        if(csc){
+            *(volatile uint32_t*)(xhci_op + 0x400 + i * 0x10) = (portsc & ~0x00EF0000) | (1 << 17);
+        }
     }
 
     sem_init(&mouse_sem, 0);
@@ -640,5 +662,5 @@ int xhci_probe(pci_device_t* device){
 }
 
 void xhci_remove(pci_device_t* device){
-
+    (void)device;
 }

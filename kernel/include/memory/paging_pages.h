@@ -115,7 +115,7 @@ extern pde_t   pde_user[512];
 extern pte_t   pte_user[512];
 
 extern pdpe_t  pdpe_krnluser[512];
-extern pde_t  pde_krnluser[512];
+extern pde_t   pde_krnluser[512];
 extern pte_t   pte_krnluser[512];
 
 extern pdpe_t  pdpe_video[512];
@@ -126,7 +126,8 @@ extern pte_t   pte_video[2048];
 // Used by uacpi_kernel_map() for arbitrary physical addresses not covered by
 // the kernel or ACPI table windows.  512 PTEs = 2 MB of virtual address space.
 #define MMIO_POOL_BASE    0xFFFFE40000000000ULL
-#define MMIO_POOL_PAGES   512
+#define MMIO_NUM_PDS      16
+#define MMIO_POOL_PAGES   (MMIO_NUM_PDS * 512)
 
 extern pdpe_t  pdpe_mmio[512];
 extern pde_t   pde_mmio[512];

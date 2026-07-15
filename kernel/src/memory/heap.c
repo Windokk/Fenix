@@ -168,15 +168,15 @@ void kfree(void *ptr) {
         (mblock_t*)(((uint8_t*)ptr) - sizeof(mblock_t));
 
     if (mb->magic != MBLOCK_MAGIC) {
-        HALT_AND_CATCH_FIRE(
-            "HEAP: free(%p) - invalid block\n",
+        KLOG_FATAL(
+            "HEAP","free(%p) - invalid block\n",
             ptr
         );
     }
 
     if (mb->free) {
-        HALT_AND_CATCH_FIRE(
-            "HEAP: double free detected (%p)\n",
+        KLOG_FATAL(
+            "HEAP"," double free detected (%p)\n",
             ptr
         );
     }

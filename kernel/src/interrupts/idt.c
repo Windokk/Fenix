@@ -166,7 +166,7 @@ void interrupt_handler(isr_ctx_t *regs)
 
     if (int_no == 33) {
         if (!g_use_apic) pic_mask_irq(PIC_KEYBOARD_INTERRUPT);
-        ps2_keyboard_handle_irq();
+        //ps2_keyboard_handle_irq();
         if (!g_use_apic) pic_unmask_irq(PIC_KEYBOARD_INTERRUPT);
     }
     else if (int_no == 40) {
@@ -206,7 +206,7 @@ void interrupt_handler(isr_ctx_t *regs)
     }
     else {
         disable_interrupts();
-        KLOG_ERROR("IDT","Error: %s, Error Code: 0x%x", exception_strs[int_no], regs->error_code);
+        KLOG_ERROR("IDT","Error: %s, Error Code: 0x%x ; rip : %llx ; cs : %llx", exception_strs[int_no], regs->error_code, regs->rip, regs->cs);
         for (;;) {
             asm volatile ("hlt");
         }

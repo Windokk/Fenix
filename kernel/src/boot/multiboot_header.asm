@@ -1,31 +1,31 @@
 section .multiboot_header
 
 %define MULTIBOOT2_HEADER_MAGIC                  0xe85250d6
-%define MULTIBOOT_HEADER_TAG_FRAMEBUFFER         5
-%define MULTIBOOT_HEADER_TAG_ENTRY_ADDRESS       3
-%define MULTIBOOT_HEADER_TAG_ENTRY_ADDRESS_EFI64 9
 %define MULTIBOOT_HEADER_TAG_OPTIONAL            1
+%define MULTIBOOT_HEADER_TAG_ENTRY_ADDRESS       3
+%define MULTIBOOT_HEADER_TAG_FRAMEBUFFER         5
+%define MULTIBOOT_HEADER_TAG_EFI_BS              7
+%define MULTIBOOT_HEADER_TAG_ENTRY_ADDRESS_EFI64 9
 %define MULTIBOOT_HEADER_TAG_END                 0
 %define GRUB_MULTIBOOT_ARCHITECTURE_I386         0
-%define GRUB_MULTIBOOT_ARCHITECTURE_EFI64        2
 %define KERNEL_VMA                               0xFFFF800000000000
 
 extern start_bios32
 extern start_efi64
 
-multiboot_header_bios:
+multiboot_header:
     dd   MULTIBOOT2_HEADER_MAGIC
     dd   GRUB_MULTIBOOT_ARCHITECTURE_I386
-    dd   multiboot_header_bios_end - multiboot_header_bios
-    dd   -(MULTIBOOT2_HEADER_MAGIC + GRUB_MULTIBOOT_ARCHITECTURE_I386 + (multiboot_header_bios_end - multiboot_header_bios))
-framebuffer_bios_tag_start:  
+    dd   multiboot_header_end - multiboot_header
+    dd   -(MULTIBOOT2_HEADER_MAGIC + GRUB_MULTIBOOT_ARCHITECTURE_I386 + (multiboot_header_end - multiboot_header))
+framebuffer_tag_start:  
     dw MULTIBOOT_HEADER_TAG_FRAMEBUFFER
     dw MULTIBOOT_HEADER_TAG_OPTIONAL
-    dd framebuffer_bios_tag_end - framebuffer_bios_tag_start
+    dd framebuffer_tag_end - framebuffer_tag_start
     dd 1920
     dd 1080
     dd 32
-framebuffer_bios_tag_end:
+framebuffer_tag_end:
     db 0    ; padding
     db 0    ; padding
     db 0    ; padding
@@ -40,30 +40,11 @@ entry_address_bios_tag_end:
     db 0    ; padding
     db 0    ; padding
     db 0    ; padding
-    dw MULTIBOOT_HEADER_TAG_END
+boot_services_efi_tag_start:
+    dw MULTIBOOT_HEADER_TAG_EFI_BS
     dw 0
-    dd 0
-multiboot_header_bios_end:
-
-
-
-multiboot_header_efi:
-    dd   MULTIBOOT2_HEADER_MAGIC
-    dd   GRUB_MULTIBOOT_ARCHITECTURE_EFI64
-    dd   multiboot_header_efi_end - multiboot_header_efi
-    dd   -(MULTIBOOT2_HEADER_MAGIC + GRUB_MULTIBOOT_ARCHITECTURE_EFI64 + (multiboot_header_efi_end - multiboot_header_efi))
-framebuffer_efi_tag_start:  
-    dw MULTIBOOT_HEADER_TAG_FRAMEBUFFER
-    dw MULTIBOOT_HEADER_TAG_OPTIONAL
-    dd framebuffer_efi_tag_end - framebuffer_efi_tag_start
-    dd 1920
-    dd 1080
-    dd 32
-framebuffer_efi_tag_end:
-    db 0    ; padding
-    db 0    ; padding
-    db 0    ; padding
-    db 0    ; padding
+    dd 8
+boot_services_efi_tag_end:
 entry_address_efi_tag_start:
     dw  MULTIBOOT_HEADER_TAG_ENTRY_ADDRESS_EFI64
     dw  0
@@ -77,4 +58,4 @@ entry_address_efi_tag_end:
     dw MULTIBOOT_HEADER_TAG_END
     dw 0
     dd 0
-multiboot_header_efi_end:
+multiboot_header_end:

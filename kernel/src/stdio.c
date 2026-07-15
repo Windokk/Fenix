@@ -205,7 +205,7 @@ void hex_to_ascii(uint64_t value, char* str, bool uppercase)
     bool started = false;
 
     for (; shift >= 0; shift -= 4) {
-        char digit = (value >> shift) & 0xF;
+        int digit = (value >> shift) & 0xF;
         if (digit != 0 || started) {
             *p++ = hex_digits[digit];
             started = true;

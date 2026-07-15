@@ -16,21 +16,10 @@ acpi_state_t g_acpi                  = {0};
 uint64_t     g_rsdp_phys             = 0;
 uint8_t*     g_rsdp_virt             = 0;
 
+uint8_t acpi2_guid[16] = {0x71, 0xE8, 0x68, 0x88, 0xF1, 0xE4, 0xD3, 0x11, 0xBC, 0x22, 0x00, 0x80, 0xC7, 0x3C, 0x88, 0x81};
+uint8_t acpi1_guid[16] = {0x30, 0x2D, 0x9D, 0xEB, 0x88, 0x2D, 0xD3, 0x11, 0x9A, 0x16, 0x00, 0x90, 0x27, 0x3F, 0xC1, 0x4D};
+
 bool g_lapic_ready = false;
-
-// ─── Multiboot2 tag structures for ACPI ──────────────────────────────────────
-
-typedef struct {
-    uint32_t type;
-    uint32_t size;
-    uint8_t  rsdp[0];
-} __attribute__((packed)) mb2_tag_acpi_t;
-
-typedef struct {
-    uint32_t type;
-    uint32_t size;
-    uint8_t  tags[0];
-} mb2_info_t;
 
 uacpi_interrupt_ret power_button_handler(uacpi_handle ctx) {
     (void)ctx;
@@ -41,28 +30,94 @@ uacpi_interrupt_ret power_button_handler(uacpi_handle ctx) {
 
 // ─── Public: init ─────────────────────────────────────────────────────────────
 
+extern bool g_booted_efi;
+
+extern void* kernel_end;
+
+extern uint64_t heap_start;
+extern uint64_t heap_end;
+
 void acpi_init(void *mbi_phys) {
     KLOG_INFO("ACPI", "Initializing...");
 
     init_paging_mmio_pool();
 
-    mb2_info_t *mbi = (mb2_info_t *)TO_VMA_U64((uint64_t)mbi_phys);
+    multiboot_info_t *mbi = TO_VMA_PTR(multiboot_info_t *, mbi_phys);
 
-    uint8_t *tag = mbi->tags;
-    while (1) {
-        uint32_t type = *(uint32_t *)tag;
-        uint32_t size = *(uint32_t *)(tag + 4);
-        if (type == 0) break;
+    multiboot_tag_t *tag = mbi->tags;
 
-        if (type == 15 || (type == 14 && g_rsdp_virt == NULL)) {
-            mb2_tag_acpi_t *acpi_tag = (mb2_tag_acpi_t *)tag;
-            g_rsdp_virt = acpi_tag->rsdp;
+    if(g_booted_efi){
+
+        for (tag = (multiboot_tag_t *) mbi->tags;
+            tag->type != MULTIBOOT_TAG_TYPE_END; 
+            tag = (multiboot_tag_t *) ((uint8_t *) tag + ((tag->size + 7) & ~7)))
+        {
+            if (tag->type == MULTIBOOT_TAG_TYPE_EFI64) {
+
+
+                struct multiboot_tag_efi64 *efi_tag = (struct multiboot_tag_efi64 *)tag;
+                void* efi_system_table = paging_map_mmio(efi_tag->pointer, 192); // only map header to get access to size
+                if(efi_system_table){
+                    uint32_t efi_sys_table_size = *(uint32_t*)(efi_system_table+12);
+                    paging_unmap_mmio(efi_system_table, 192);
+
+                    void* efi_system_table_virt = paging_map_mmio(efi_tag->pointer, efi_sys_table_size);
+
+                    if(efi_system_table_virt){
+                        uint64_t num_table_entries = *(uint64_t*)(efi_system_table_virt+104);
+                        uint64_t config_table_ptr = *(uint64_t*)(efi_system_table_virt+112);
+
+                        uint8_t* config_table_virt = (uint8_t*)paging_map_mmio(config_table_ptr, 24*num_table_entries);
+                        if(config_table_virt){
+                            uint64_t vendor_table = (uint64_t)NULL;
+                            for(uint32_t i = 0; i < num_table_entries; i++){
+                                uint8_t vendor_guid[16];
+                                memcpy(vendor_guid, config_table_virt + i*24, 16);
+                                bool acpi_2 = memcmp(vendor_guid, acpi2_guid, 16) == 0;
+                                bool acpi_1 = memcmp(vendor_guid, acpi1_guid, 16) == 0;
+                                if(acpi_2){
+                                    vendor_table = *(uint64_t*)(config_table_virt+ i*24 + 16);
+                                    break;
+                                }
+                                else if(acpi_1){
+                                    vendor_table = *(uint64_t*)(config_table_virt+ i*24 + 16);
+                                }
+                            }
+
+                            if(vendor_table != (uint64_t)NULL){
+                                g_rsdp_phys = vendor_table;
+                                g_rsdp_virt = TO_VMA_PTR(uint8_t *,vendor_table);
+                            }
+
+                            paging_unmap_mmio(efi_system_table_virt, efi_sys_table_size);
+                            paging_unmap_mmio(config_table_virt, 24*num_table_entries);
+
+                            break;
+                        }
+                    }
+                }
+                
+            }
         }
-
-        tag += (size + 7) & ~7;
+    }
+    else{
+        for (tag = (multiboot_tag_t *) mbi->tags;
+            tag->type != MULTIBOOT_TAG_TYPE_END; 
+            tag = (multiboot_tag_t *) ((uint8_t *) tag + ((tag->size + 7) & ~7)))
+        {
+            // Check for acpi tags
+            if (tag->type == MULTIBOOT_TAG_TYPE_ACPI_NEW) {
+                struct multiboot_tag_new_acpi *acpi_tag = (struct multiboot_tag_new_acpi *)tag;
+                g_rsdp_virt = acpi_tag->rsdp;
+            }
+            else if(tag->type == MULTIBOOT_TAG_TYPE_ACPI_OLD && g_rsdp_virt == NULL){
+                struct multiboot_tag_old_acpi *acpi_tag = (struct multiboot_tag_old_acpi *)tag;
+                g_rsdp_virt = acpi_tag->rsdp;
+            }
+        }
     }
 
-    if (g_rsdp_virt == 0) { KLOG_INFO("ACPI", "RSDP not found"); return; }
+    if (g_rsdp_virt == NULL) { KLOG_FATAL("ACPI", "RSDP not found"); return; }
 
     /* Store physical address for uACPI's uacpi_kernel_get_rsdp() */
     g_rsdp_phys = TO_PHYS_U64(g_rsdp_virt);

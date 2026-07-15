@@ -9,11 +9,7 @@
 uint32_t lapic_ticks_per_ms = 0;
 
 void lapic_timer_init(void){
-    char buf[32];
-    serial_print("[LAPIC] pm_tmr_port=0x");
-    itoa(g_acpi.pm_tmr_port, buf, 16);
-    serial_print(buf);
-    serial_print("\n");
+    KLOG_INFO("LAPIC", "pm_tmr_port=0x%llx", g_acpi.pm_tmr_port);
 
     if(g_acpi.pm_tmr_port != 0)
     {

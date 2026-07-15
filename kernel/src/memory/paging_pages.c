@@ -148,7 +148,9 @@ void init_paging_mmio_pool(void) {
 
     pml4e[0x1C8].all = TO_PHYS_U64(pdpe_mmio) | 3;
     pdpe_mmio[0].all = TO_PHYS_U64(pde_mmio)  | 3;
-    pde_mmio[0].all  = TO_PHYS_U64(pte_mmio)  | 3;
+    for(int i = 0; i < MMIO_NUM_PDS; i++){
+        pde_mmio[i].all  = TO_PHYS_U64(&pte_mmio[i * 512])  | 3;
+    }
 
     x86_tlb_flush_all();
 }

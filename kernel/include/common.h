@@ -108,19 +108,20 @@ typedef unsigned long size_t;
 #define COS(x) ({ \
     float result; \
     __asm__ ( \
-        "fld %1;"                 /* Load x into FPU stack */ \
-        "fcos;"                   /* Compute cosine */ \
-        "fstp %0;"                /* Store result and pop from FPU stack */ \
-        : "=m"(result)            /* Output: result stored in memory */ \
-        : "t"(x)                  /* Input: x in the FPU stack (t register) */ \
+        "fld %1;"       /* Load x into FPU stack */ \
+        "fcos;"         /* Compute cosine */ \
+        "fstps %0;"     /* Store result and pop from FPU stack */ \
+        : "=m"(result)  /* Output: result stored in memory */ \
+        : "t"(x)        /* Input: x in the FPU stack (t register) */ \
     ); \
     result; \
 })
 
-extern void HALT_AND_CATCH_FIRE(const char *fmt, ...);
+extern void HALT_AND_CATCH_FIRE();
 
 extern void restore_interrupts(uintptr_t);
 extern uintptr_t disable_interrupts();
+extern void klog_print(uint8_t r, uint8_t g, uint8_t b, const char* prefix, const char* fmt, ...);
 
 #define KLOG_INFO(tag, fmt, ...)  do { \
         klog_print(80, 210, 90, "[" tag " INFO] ", fmt "\n", ##__VA_ARGS__); \
@@ -136,5 +137,5 @@ extern uintptr_t disable_interrupts();
 
 #define KLOG_FATAL(tag, fmt, ...)  do { \
         klog_print(255, 0, 0, "[" tag " FATAL] ", fmt "\n", ##__VA_ARGS__); \
-        HALT_AND_CATCH_FIRE("[" tag " FATAL] " fmt, ##__VA_ARGS__); \
+        HALT_AND_CATCH_FIRE(); \
     } while(0)

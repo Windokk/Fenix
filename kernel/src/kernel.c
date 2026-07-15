@@ -37,11 +37,9 @@
 // via TO_VMA_U64 as long as GRUB placed it below 8 MB (always true in practice).
 static multiboot_info_t *g_mbi_phys = NULL;
 
-void HALT_AND_CATCH_FIRE(const char *fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    vprintf(fmt, args);
-    va_end(args);
+bool g_booted_efi = false;
+
+void HALT_AND_CATCH_FIRE() {
     x86_hlt(); 
     while(1) {}
 }
@@ -157,13 +155,13 @@ void kernel_premain(unsigned long magic, multiboot_info_t* mbi_phys) {
 
     ps2_init();
 
-    KLOG_INFO("KERNEL", "PS/2 Keyboard Initialization");
+    //KLOG_INFO("KERNEL", "PS/2 Keyboard Initialization");
 
-    ps2_keyboard_enable();
+    //ps2_keyboard_enable();
 
-    KLOG_INFO("KERNEL", "PS/2 Mouse Initialization");
+    //KLOG_INFO("KERNEL", "PS/2 Mouse Initialization");
 
-    ps2_mouse_enable();
+    //ps2_mouse_enable();
 
     KLOG_INFO("KERNEL", "RTC Initialization");
 
@@ -175,7 +173,11 @@ void kernel_premain(unsigned long magic, multiboot_info_t* mbi_phys) {
 
     pci_register_driver(&xhci_driver);
 
+    KLOG_INFO("KERNEL", "Running basic self tests");
+
     selftest_run_all();
+
+    KLOG_INFO("KERNEL", "Input module Initialization");
 
     init_input();
 
@@ -187,7 +189,7 @@ void kernel_premain(unsigned long magic, multiboot_info_t* mbi_phys) {
 
     smp_start_all();
     
-    while(g_ap_online_count < g_acpi.cpu_count)
+    while(g_ap_ready_count < g_acpi.cpu_count)
         asm volatile("pause");
 
     enable_interrupts();

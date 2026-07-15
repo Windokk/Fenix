@@ -48,7 +48,7 @@ void *uacpi_kernel_map(uacpi_phys_addr addr, uacpi_size len) {
      * as a fallback. */
     void *mmio = paging_map_mmio((uint64_t)addr, (uint64_t)len);
     if (!mmio)
-        serial_print("[uACPI] paging_map_mmio returned NULL!\n");
+        KLOG_ERROR("uACPI", "paging_map_mmio returned NULL!\n");
     return mmio;
 }
 

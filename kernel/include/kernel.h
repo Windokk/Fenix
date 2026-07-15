@@ -2,7 +2,7 @@
 
 #include "common.h"
 
-extern void HALT_AND_CATCH_FIRE(const char *fmt, ...);
+extern void HALT_AND_CATCH_FIRE() __attribute__((noreturn));
 
 static inline void x86_hlt(void) {
     __asm__ __volatile__ ("hlt"); 

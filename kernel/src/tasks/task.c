@@ -135,7 +135,7 @@ static task_t *scheduler_next_local(void) {
 
 static inline void canary_check(task_t *t) {
     if (*(uint64_t *)t->stack != STACK_CANARY_MAGIC)
-        HALT_AND_CATCH_FIRE("Stack overflow detected in task '%s' (id=%u)", t->name, t->id);
+        KLOG_FATAL("TASK","Stack overflow detected in task '%s' (id=%u)", t->name, t->id);
 }
 
 void task_yield_local(void) {

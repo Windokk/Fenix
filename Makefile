@@ -101,6 +101,7 @@ $(ISO_FILE): $(FENIX_BIN)
 		mkdir -p build/isodir/boot/grub; \
 		echo menuentry \"Fenix\" { > build/isodir/boot/grub/grub.cfg; \
 		echo "	insmod all_video" >> build/isodir/boot/grub/grub.cfg; \
+		echo "	insmod acpi" >> build/isodir/boot/grub/grub.cfg; \
 		echo "	echo "Booting kernel..."" >> build/isodir/boot/grub/grub.cfg; \
 		echo "	multiboot2 /boot/fenix.bin" >> build/isodir/boot/grub/grub.cfg; \
 		echo "}" >> build/isodir/boot/grub/grub.cfg; \

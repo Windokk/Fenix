@@ -6,6 +6,7 @@ extern p2_table
 extern p1_table
 extern kernel_stack_top
 extern gdt64.kernel_code
+extern g_booted_efi
 
 %define KERNEL_VMA          0xFFFF800000000000
 %define PAGE_SIZE           0x1000
@@ -21,6 +22,8 @@ start_efi64:
     
     push rax
     push rbx
+
+    mov byte [g_booted_efi - KERNEL_VMA], 1
 
     call setup_page_tables
 

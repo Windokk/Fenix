@@ -80,7 +80,6 @@ static void readline_load(char *buf, int max, int *len, const char *str) {
 }
 
 static int shell_readline(char *buf, int max) {
-    uint32_t cpu_id = cpu_self_id();
     cursor_show();
     int len          = 0;
     int history_pos  = -1; /* -1 = not browsing history */
