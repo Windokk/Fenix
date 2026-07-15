@@ -4,26 +4,28 @@
 
 #define IDT_ENTRIES 256
 
-typedef struct opts {
-    uint8_t stack_OK  : 3;
-    uint8_t ZEROS     : 5;
-    uint8_t gate_type : 1;
-    uint8_t ONES      : 3;
-    uint8_t ZERO      : 1;
-    uint8_t DPL       : 2;
-    uint8_t present   : 1;
-} __attribute__((packed)) opts_t;
+// Octet "IST" (occupe l'octet bas de l'ancien opts_t)
+typedef struct ist_byte {
+    uint8_t ist      : 3;  // Interrupt Stack Table index (0 = non utilisé)
+    uint8_t reserved : 5;  // doit être à 0
+} __attribute__((packed)) ist_byte_t;
+
+// Octet "type_attributes" (occupe l'octet haut de l'ancien opts_t)
+typedef struct type_attr_byte {
+    uint8_t gate_type : 4;  // 0xE = Interrupt Gate, 0xF = Trap Gate
+    uint8_t zero      : 1;  // doit être à 0
+    uint8_t dpl       : 2;  // Descriptor Privilege Level
+    uint8_t present   : 1;  // bit P : descripteur valide si 1
+} __attribute__((packed)) type_attr_byte_t;
 
 typedef struct idt_gate {
-    uint16_t ptr_low;
-    uint16_t selector;
-    opts_t opts;
-    uint16_t ptr_mid;
-    uint32_t ptr_high;
-
-    uint8_t  _1_reserved : 8;
-    uint8_t  _type       : 5;
-    uint32_t _2_reserved : 19;
+    uint16_t          offset_low;   // Offset bits 0..15
+    uint16_t          selector;     // Segment Selector (GDT)
+    ist_byte_t        ist;          // IST + réservé
+    type_attr_byte_t  type_attr;    // Type + DPL + P
+    uint16_t          offset_mid;   // Offset bits 16..31
+    uint32_t          offset_high;  // Offset bits 32..63
+    uint32_t          reserved;     // doit être à 0
 } __attribute__((packed)) idt_gate_t;
 
 typedef struct idt_register {
