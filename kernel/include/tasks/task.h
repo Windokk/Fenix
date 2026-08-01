@@ -5,7 +5,7 @@
 #include "memory/pool.h"
 
 #define TASK_STACK_SIZE     16384
-#define MAX_TASKS           16
+#define MAX_TASKS           4
 #define STACK_CANARY_MAGIC  0xDEADC0DEDEADC0DEULL
 
 typedef enum {

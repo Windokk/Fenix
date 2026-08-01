@@ -75,7 +75,7 @@ typedef union pde_struct {
         uint64_t disable_cache   : 1;   // Disable cache 
         uint64_t accessed        : 1;   // Has the page been accessed since last refresh?
         uint64_t dirty           : 1;   // Page is dirty
-        uint64_t mbo_1           : 1;   // Must be 1
+        uint64_t ps              : 1;   // Must be 1
         uint64_t global          : 1;   // Global
         uint64_t avail_1         : 3;   // Available for OS to use
         uint64_t pat             : 1;   // Page attribute table
@@ -139,6 +139,7 @@ extern pdpe_t  pdpe_apic[512];
 extern pde_t   pde_apic[512];
 extern pte_t   pte_apic[512];
 
+extern pde_t  pde_efi_identity[3][512];  // 3 PD tables + PDE_USER = 4 Go
 
 void init_paging();
 
@@ -148,7 +149,7 @@ void init_paging_apic(uint64_t lapic_phys,
                       uint64_t *ioapic_phys, uint32_t ioapic_count);
 
 // Initialize the MMIO pool at MMIO_POOL_BASE. Call once after init_paging().
-void  init_paging_mmio_pool(void);
+void init_paging_mmio_pool(void);
 
 // Map/unmap arbitrary physical MMIO pages from the pool.
 // paging_map_mmio handles misaligned addresses and rounds size up to pages.

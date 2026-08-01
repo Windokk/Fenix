@@ -21,6 +21,13 @@ static uint8_t fb_color_b = 255;
 
 spinlock_t fb_lock = {0};
 
+static bool shell_line_active;
+static const char *shell_line_prompt;
+static char *shell_line_buf;
+static int *shell_line_len;
+static int32_t *shell_line_widths;
+bool shell_line_erased;
+
 void cursor_render(bool on){
     if (!video_info.mapped) return;
     if(on)
@@ -114,6 +121,16 @@ void console_clear(void) {
 void console_erase_chars(int32_t pixel_width) {
     uintptr_t _flags = disable_interrupts();
     lock(&fb_lock);
+
+    if(shell_line_erased){
+        redraw_shell_prompt();
+        shell_line_erased = false;
+        cursor_sync();
+        unlock(&fb_lock);
+        restore_interrupts(_flags);
+        return;
+    }
+
     if (!video_info.mapped || pixel_width <= 0) {
         unlock(&fb_lock);
         restore_interrupts(_flags);
@@ -225,6 +242,37 @@ void klog_print(uint8_t r, uint8_t g, uint8_t b, const char* prefix, const char*
     va_list args;
 	va_start(args, fmt);
     fb_color_r = r; fb_color_g = g; fb_color_b = b;
+    if(shell_line_active){
+        
+        if(!shell_line_erased)
+        {
+            gfx_draw_filled_rectangle(0, fb_cy, fb_cx, GFX_LINE_HEIGHT, 0, 0, 0);
+            fb_cx = 0;
+            shell_line_erased = true;
+        }
+        
+        // Hide cursor
+        cursor_active = false;
+        cursor_render(false);
+        cursor_on = false;
+
+        vprintf_unlocked(prefix, args);
+        fb_color_r = 255; fb_color_g = 255; fb_color_b = 255;
+        vprintf_unlocked(fmt, args);
+	    va_end(args);
+
+        cursor_active = true;
+        cursor_render(false);
+        cursor_px = fb_cx;
+        cursor_py = fb_cy;
+        cursor_render(true);
+        cursor_on = true;
+
+        unlock(&fb_lock);
+        restore_interrupts(_flags);
+
+        return;
+    }
     vprintf_unlocked(prefix, args);
     fb_color_r = 255; fb_color_g = 255; fb_color_b = 255;
     vprintf_unlocked(fmt, args);
@@ -233,11 +281,110 @@ void klog_print(uint8_t r, uint8_t g, uint8_t b, const char* prefix, const char*
     restore_interrupts(_flags);
 }
 
+void console_shell_line_begin(const char *prompt, char *buf, int *len, int32_t *widths)
+{
+    uintptr_t _flags = disable_interrupts();
+    lock(&fb_lock);
+
+    shell_line_active = true;
+    shell_line_erased = false;
+
+    shell_line_prompt = prompt;
+    shell_line_buf = buf;
+    shell_line_len = len;
+    shell_line_widths = widths;
+
+    unlock(&fb_lock);
+    restore_interrupts(_flags);
+}
+
+void console_shell_line_end(void)
+{
+    uintptr_t _flags = disable_interrupts();
+    lock(&fb_lock);
+
+    shell_line_active = false;
+
+    shell_line_prompt = NULL;
+    shell_line_buf = NULL;
+    shell_line_len = NULL;
+    shell_line_widths = NULL;
+
+    unlock(&fb_lock);
+    restore_interrupts(_flags);
+}
+
+void console_shell_echo_char(char c, int32_t *width_out){
+    uintptr_t _flags = disable_interrupts();
+    lock(&fb_lock);
+    if(shell_line_erased){
+
+        redraw_shell_prompt();
+
+        shell_line_erased = false;
+    }
+    int32_t fb_cx_save = fb_cx;
+    fb_putchar(c);
+    write_serial(c);
+    *width_out = fb_cx - fb_cx_save;
+    cursor_sync();
+    unlock(&fb_lock);
+    restore_interrupts(_flags);
+}
+
+void redraw_shell_prompt(void)
+{
+    int index = 0;
+    while(shell_line_prompt[index] != '\0'){
+        fb_putchar(shell_line_prompt[index]);
+        write_serial(shell_line_prompt[index]);
+        index++;
+    }
+
+    for(int i = 0; i < *shell_line_len; i++){
+        int32_t fb_cx_save = fb_cx;
+        fb_putchar(shell_line_buf[i]);
+        write_serial(shell_line_buf[i]);
+        shell_line_widths[i] = fb_cx - fb_cx_save;
+    }
+}
+
 void vprintf(const char* format, va_list args) {
     uintptr_t _flags = disable_interrupts();
     lock(&fb_lock);
     uint8_t pad = 0;
     char buffer[64]; // Temporary buffer for numbers
+
+    if(shell_line_active){
+
+        if(!shell_line_erased)
+        {
+            gfx_draw_filled_rectangle(0, fb_cy, fb_cx, GFX_LINE_HEIGHT, 0, 0, 0);
+            fb_cx = 0;
+            shell_line_erased = true;
+        }
+
+        // Hide cursor
+        cursor_active = false;
+        cursor_render(false);
+        cursor_on = false;
+
+        
+
+        vprintf_unlocked(format, args);
+
+        cursor_active = true;
+        cursor_render(false);
+        cursor_px = fb_cx;
+        cursor_py = fb_cy;
+        cursor_render(true);
+        cursor_on = true;
+
+        unlock(&fb_lock);
+        restore_interrupts(_flags);
+
+        return;
+    }
 
     while (*format != '\0') {
         if (*format == '%') {

@@ -33,6 +33,17 @@ flush_rip:
     mov rax, gdt64_pointer
     lgdt [rax]
 
+    ; Reload CS with our own kernel code selector (0x08).
+    ; A near jmp/mov cannot change CS in 64-bit mode — only a far
+    ; jump/call/iretq reloads the CS descriptor cache. Without this,
+    ; CS keeps whatever selector the EFI/GRUB entry left active, which
+    ; becomes a dangling reference into OUR GDT once lgdt above runs.
+    push qword 0x08            ; kernel code selector (matches gdt64.kernel_code)
+    lea rax, [rel .reload_cs]
+    push rax
+    retfq
+.reload_cs:
+
     mov ax, GDT_KERNEL_DATA
     mov ss, ax
     mov ds, ax

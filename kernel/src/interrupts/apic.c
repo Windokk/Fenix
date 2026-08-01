@@ -225,10 +225,10 @@ void apic_init(void) {
 
     g_use_apic = true;
 
-    enable_interrupts();
-
     for (uint32_t i = 0; i < g_acpi.ioapic_count; i++)
         ioapic_init_one(i);
+
+    enable_interrupts();
 
     // Unmask the IRQs actually used by existing drivers
     ioapic_unmask_irq(1);   // PS/2 keyboard

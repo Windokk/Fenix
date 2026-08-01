@@ -22,7 +22,7 @@
 #define LAPIC_ID          0x020   // LAPIC ID
 #define LAPIC_VER         0x030   // LAPIC version
 #define LAPIC_TPR         0x080   // Task Priority
-#define LAPIC_EOI         0x0B0   // End of Interrupt (write any value)
+#define LAPIC_EOI         0x0B0   // End of Interrupt
 #define LAPIC_SVR         0x0F0   // Spurious Interrupt Vector Register
 #define LAPIC_ESR         0x280   // Error Status
 #define LAPIC_ICR_LO      0x300   // Interrupt Command (low 32 bits)

@@ -13,7 +13,7 @@ uint64_t round_up(uint64_t num, uint64_t multiple) {
   return ((num + multiple - 1) / multiple) * multiple;
 }
 
-#define HEAP_SIZE (4 * 1024 * 1024)   /* 4 MB */
+#define HEAP_SIZE (128 * 1024 * 1024)   // 16 MB Todo : Add more space
 
 void init_frames(size_t total_memory){
 

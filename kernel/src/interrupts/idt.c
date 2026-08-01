@@ -77,6 +77,13 @@ static void config_idt_vector(uint16_t n, uint64_t handler) {
 
     idt[n].ist.ist      = 0; // do not switch stack
     idt[n].ist.reserved = 0;
+    idt[n].opts.stack_OK  = 0; // do not switch stack
+    idt[n].opts.present   = 1; // are we valid
+    idt[n].opts.DPL       = 3; // priv to call int handler
+    idt[n].opts.gate_type = 0x00; // 0 = interrupt, 1 = trap
+    idt[n].opts.ONES      = 0x07;
+    idt[n].opts.ZERO      = 0;
+    idt[n].opts.ZEROS     = 0;
 
     idt[n].type_attr.present   = 1;    // valid
     idt[n].type_attr.dpl       = 0;    // kernel only

@@ -78,8 +78,22 @@ global p4_table
 p4_table resq 512
 global p3_table
 p3_table resq 512
+
+global p3_table_low
+p3_table_low resq 512
+
 global p2_table
 p2_table resq 512
+
+global p2_table_low_0
+p2_table_low_0 resq 512
+global p2_table_low_1
+p2_table_low_1 resq 512
+global p2_table_low_2
+p2_table_low_2 resq 512
+global p2_table_low_3
+p2_table_low_3 resq 512
+
 global p1_table
 p1_table resq 512
 

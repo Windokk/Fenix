@@ -29,13 +29,11 @@
 
 extern semaphore_t kb_sem;
 
-/* ------------------------------------------------------------------ */
-/* History                                                              */
-/* ------------------------------------------------------------------ */
+// History
 
 static char history[HISTORY_SIZE][INPUT_MAX];
-static int  history_count = 0; /* total entries stored, capped at HISTORY_SIZE */
-static int  history_head  = 0; /* index where next entry will be written       */
+static int  history_count = 0; // total entries stored, capped at HISTORY_SIZE
+static int  history_head  = 0; // index where next entry will be written
 
 static void history_push(const char *line) {
     if (line[0] == '\0') return;
@@ -45,33 +43,29 @@ static void history_push(const char *line) {
     if (history_count < HISTORY_SIZE) history_count++;
 }
 
-/* pos: 0 = most recent, 1 = one before, etc. Returns NULL if out of range. */
+// pos: 0 = most recent, 1 = one before, etc. Returns NULL if out of range.
 static const char *history_get(int pos) {
     if (pos < 0 || pos >= history_count) return NULL;
     int idx = (history_head - 1 - pos + HISTORY_SIZE * 2) % HISTORY_SIZE;
     return history[idx];
 }
 
-/* ------------------------------------------------------------------ */
-/* Line input                                                           */
-/* ------------------------------------------------------------------ */
+// Line input                                                           
 
 static int32_t char_widths[INPUT_MAX];
 
-/* Erase the current line content from the display and reset len to 0. */
+// Erase the current line content from the display and reset len to 0.
 static void readline_erase_line(int *len) {
     for (int i = *len - 1; i >= 0; i--)
         console_erase_chars(char_widths[i]);
     *len = 0;
 }
 
-/* Print str into buf starting at position 0, updating char_widths and len. */
+// Print str into buf starting at position 0, updating char_widths and len.
 static void readline_load(char *buf, int max, int *len, const char *str) {
     int i = 0;
     while (str[i] && i < max - 1) {
-        int32_t x_before = console_cursor_x();
-        printf("%c", str[i]);
-        char_widths[i] = console_cursor_x() - x_before;
+        console_shell_echo_char(str[i], &char_widths[i]);
         buf[i] = str[i];
         i++;
     }
@@ -82,6 +76,7 @@ static void readline_load(char *buf, int max, int *len, const char *str) {
 static int shell_readline(char *buf, int max) {
     cursor_show();
     int len          = 0;
+    console_shell_line_begin("fenix> ", buf, &len, char_widths);
     int history_pos  = -1; /* -1 = not browsing history */
     char saved[INPUT_MAX];  /* preserves the line being typed when UP is pressed */
     saved[0] = '\0';
@@ -95,6 +90,17 @@ static int shell_readline(char *buf, int max) {
 
         if (ev.ascii == '\n') {
             cursor_hide();
+
+            if(shell_line_erased){
+                uintptr_t _flags = disable_interrupts();
+                lock(&fb_lock);
+                redraw_shell_prompt();
+                unlock(&fb_lock);
+                restore_interrupts(_flags);
+                return '\0';
+            }
+
+            console_shell_line_end();
             printf("\n");
             buf[len] = '\0';
             history_push(buf);
@@ -139,16 +145,12 @@ static int shell_readline(char *buf, int max) {
         /* Regular character — exit history browsing */
         history_pos = -1;
 
-        int32_t x_before = console_cursor_x();
-        printf("%c", ev.ascii);
-        char_widths[len] = console_cursor_x() - x_before;
+        console_shell_echo_char(ev.ascii, &char_widths[len]);
         buf[len++] = ev.ascii;
     }
 }
 
-/* ------------------------------------------------------------------ */
-/* Argument parser                                                      */
-/* ------------------------------------------------------------------ */
+// Argument parser
 
 static char *argv[ARGS_MAX];
 static char  arg_buf[INPUT_MAX];
@@ -171,9 +173,7 @@ static int shell_parse(const char *line, char **out_argv) {
     return argc;
 }
 
-/* ------------------------------------------------------------------ */
-/* Built-in commands                                                    */
-/* ------------------------------------------------------------------ */
+// Built-in commands
 
 static void cmd_help(void) {
     printf("Available commands:\n");
@@ -181,7 +181,7 @@ static void cmd_help(void) {
     printf("  clear        - clear the screen\n");
     printf("  echo <text>  - print text\n");
     printf("  time         - show current RTC time\n");
-    printf("  mem          - show heap debug info\n");
+    printf("  heap         - show heap debug info\n");
     printf("  prof         - show profiling debug info\n");
     printf("  shutdown     - shut system down\n");
     printf("  reboot       - reboot system\n");
@@ -207,7 +207,7 @@ static void cmd_time(void) {
            t.hours, t.minutes, t.seconds);
 }
 
-static void cmd_mem(void) {
+static void cmd_heap(void) {
     debug_heap_dump();
 }
 
@@ -223,9 +223,7 @@ static void cmd_prof(void) {
     debug_prof_dump();
 }
 
-/* ------------------------------------------------------------------ */
-/* Dispatch                                                           */
-/* ------------------------------------------------------------------ */
+// Dispatch
 
 static void shell_dispatch(const char *line) {
     if (line[0] == '\0') return;
@@ -240,7 +238,7 @@ static void shell_dispatch(const char *line) {
     if (strcmp(argv[0], "clear")    == 0) { cmd_clear();                  return; }
     if (strcmp(argv[0], "echo")     == 0) { cmd_echo(argc, argv);         return; }
     if (strcmp(argv[0], "time")     == 0) { cmd_time();                   return; }
-    if (strcmp(argv[0], "mem")      == 0) { cmd_mem();                    return; }
+    if (strcmp(argv[0], "heap")     == 0) { cmd_heap();                    return; }
     if (strcmp(argv[0], "prof")     == 0) { cmd_prof();                   return; }
     if (strcmp(argv[0], "shutdown") == 0) { cmd_shutdown();               return; }
     if (strcmp(argv[0], "reboot")   == 0) { cmd_reboot();                 return; }
@@ -248,9 +246,7 @@ static void shell_dispatch(const char *line) {
     printf("%s: command not found\n", argv[0]);
 }
 
-/* ------------------------------------------------------------------ */
-/* Shell task entry point                                               */
-/* ------------------------------------------------------------------ */
+// Shell task entry point
 
 void shell_task(void) {
     fb_set_color(255, 255, 255);

@@ -32,10 +32,84 @@ uacpi_interrupt_ret power_button_handler(uacpi_handle ctx) {
 
 extern bool g_booted_efi;
 
-extern void* kernel_end;
+void* g_efi_image_handle;
+static uint8_t efi_mmap_buffer[8192];
+typedef uint64_t (__attribute__((ms_abi)) *efi_get_memory_map_t)(uint64_t*, void*, uint64_t*, uint64_t*, uint32_t*);
+typedef uint64_t (__attribute__((ms_abi)) *efi_exit_boot_services_t)(void*, uint64_t);
+#define EFI_SUCCESS 0
+#define EFI_BUFFER_TOO_SMALL (0x8000000000000005ULL)
 
-extern uint64_t heap_start;
-extern uint64_t heap_end;
+void efi_exit_boot_services_early(uint64_t mbi_phys){
+    multiboot_info_t *mbi = (multiboot_info_t *)mbi_phys;
+
+    multiboot_tag_t *tag = mbi->tags;
+
+    for (tag = (multiboot_tag_t *) mbi->tags;
+                    tag->type != MULTIBOOT_TAG_TYPE_END; 
+                    tag = (multiboot_tag_t *) ((uint8_t *) tag + ((tag->size + 7) & ~7)))
+    {
+        if(tag->type == MULTIBOOT_TAG_TYPE_EFI64_IH){
+            struct multiboot_tag_efi64_ih *efi_ih_tag = (struct multiboot_tag_efi64_ih *)tag;
+            g_efi_image_handle = (void*)efi_ih_tag->pointer;
+        }
+    }
+
+    for (tag = (multiboot_tag_t *) mbi->tags;
+            tag->type != MULTIBOOT_TAG_TYPE_END; 
+            tag = (multiboot_tag_t *) ((uint8_t *) tag + ((tag->size + 7) & ~7)))
+    {
+        if (tag->type == MULTIBOOT_TAG_TYPE_EFI64) {
+
+
+            struct multiboot_tag_efi64 *efi_tag = (struct multiboot_tag_efi64 *)tag;
+            if(efi_tag->pointer){
+
+                uint8_t* efi_system_table = (uint8_t*)efi_tag->pointer;
+
+                if(efi_system_table){
+                    uint8_t* boot_services_ptr = *(uint8_t**)(efi_system_table + 96);
+
+                    if(boot_services_ptr)
+                    {
+                        efi_get_memory_map_t GetMemoryMap = *(efi_get_memory_map_t*)(boot_services_ptr+56);
+                        efi_exit_boot_services_t ExitBootServices = *(efi_exit_boot_services_t*)(boot_services_ptr+232);
+
+                        uint64_t map_size = 0; 
+                        void* memory_map = NULL; 
+                        uint64_t map_key;
+                        uint64_t descriptor_size; 
+                        uint32_t descriptor_version;
+
+                        uint64_t status = 0;
+                        status = GetMemoryMap(&map_size, memory_map, &map_key, &descriptor_size, &descriptor_version);
+
+                        if(map_size && status == EFI_BUFFER_TOO_SMALL){
+
+                            uint64_t new_size = map_size + (4 * descriptor_size);
+
+                            if (new_size > sizeof(efi_mmap_buffer)) {
+                                // static buffer is too small for this machine
+                                for (;;) { __asm__ volatile("hlt"); }
+                            }
+                            memory_map = efi_mmap_buffer;
+
+                            for (int attempt = 0; attempt < 5; attempt++) {
+
+                                status = GetMemoryMap(&map_size, memory_map, &map_key, &descriptor_size, &descriptor_version);
+                                if (!g_efi_image_handle)
+                                    for (;;) { __asm__ volatile("hlt"); }
+                                status = ExitBootServices(g_efi_image_handle, map_key);
+                                if (status == EFI_SUCCESS) break;
+                            }
+                        }
+                    }
+                }
+            }
+            
+        }
+    }
+
+}
 
 void acpi_init(void *mbi_phys) {
     KLOG_INFO("ACPI", "Initializing...");
@@ -53,7 +127,6 @@ void acpi_init(void *mbi_phys) {
             tag = (multiboot_tag_t *) ((uint8_t *) tag + ((tag->size + 7) & ~7)))
         {
             if (tag->type == MULTIBOOT_TAG_TYPE_EFI64) {
-
 
                 struct multiboot_tag_efi64 *efi_tag = (struct multiboot_tag_efi64 *)tag;
                 void* efi_system_table = paging_map_mmio(efi_tag->pointer, 192); // only map header to get access to size
@@ -89,11 +162,10 @@ void acpi_init(void *mbi_phys) {
                                 g_rsdp_virt = TO_VMA_PTR(uint8_t *,vendor_table);
                             }
 
-                            paging_unmap_mmio(efi_system_table_virt, efi_sys_table_size);
                             paging_unmap_mmio(config_table_virt, 24*num_table_entries);
-
-                            break;
                         }
+
+                        paging_unmap_mmio(efi_system_table_virt, efi_sys_table_size);
                     }
                 }
                 
@@ -115,6 +187,10 @@ void acpi_init(void *mbi_phys) {
                 g_rsdp_virt = acpi_tag->rsdp;
             }
         }
+    }
+
+    if(g_booted_efi){
+        KLOG_INFO("ACPI", "Booted from EFI");
     }
 
     if (g_rsdp_virt == NULL) { KLOG_FATAL("ACPI", "RSDP not found"); return; }

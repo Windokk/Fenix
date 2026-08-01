@@ -5,6 +5,8 @@
 
 #include "uacpi/acpi.h"
 
+void efi_exit_boot_services_early(uint64_t mbi_phys);
+
 #define ACPI_MAX_IOAPICS  4
 #define ACPI_MAX_ISOS     24
 #define ACPI_MAX_MCFG     4

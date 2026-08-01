@@ -143,7 +143,7 @@ void kernel_premain(unsigned long magic, multiboot_info_t* mbi_phys) {
     // Try to switch from legacy 8259 PIC to LAPIC + I/O APIC.
     // If ACPI didn't find a MADT, apic_init() is a no-op and we stay on PIC.
     apic_init();
-
+    
     if (!g_use_apic) {
         disable_interrupts();
         // Legacy PIC path: unmask cascade and device IRQs

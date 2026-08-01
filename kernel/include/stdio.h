@@ -31,4 +31,12 @@ void hex_to_ascii(uint64_t value, char* str, bool uppercase);
 
 void klog_print(uint8_t r, uint8_t g, uint8_t b, const char* prefix, const char* fmt, ...);
 
+void console_shell_line_begin(const char *prompt, char *buf, int *len, int32_t *widths);
+void console_shell_line_end(void);
+void console_shell_echo_char(char c, int32_t *width_out);
+
+void redraw_shell_prompt(void);
+
+extern bool shell_line_erased;
+
 extern spinlock_t fb_lock;
