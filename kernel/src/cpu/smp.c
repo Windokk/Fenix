@@ -146,7 +146,7 @@ void ap_main(uint64_t ap_stack_top) {
     cpu_local[cpu_self_id()].cpu_id = cpu_self_id();
 
     if(current_id == g_acpi.cpu_count - 1){
-        pte_user[8].all = 0;
+        user_ptes[8].all = 0;
         tlb_flush();
     }
 
@@ -168,7 +168,7 @@ void ap_main(uint64_t ap_stack_top) {
 
 void smp_start_all(void){
 
-    pte_user[8].all = 0x8000 | PAGE_PRESENT_CPL0;
+    user_ptes[8].all = 0x8000 | PAGE_PRESENT_CPL0;
     tlb_flush();
 
     uint32_t bsp_id = ((lapic_read(LAPIC_ID) >> 24) & 0xFF);

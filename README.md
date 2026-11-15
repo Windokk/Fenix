@@ -7,7 +7,7 @@
 <img src="github/shield.svg" alt="shield"/>
 <br>
 
-### A Unix-like operating system (x86_64)
+### A Unix-like operating system kernel (x86_64)
 <br>
 </div>
 
@@ -23,6 +23,7 @@
     #include "acpi/uacpi_types.h"
     #else
     ```
+- Run `make`
 - Execute run.sh
 
 ## Roadmap (Last Updated May 2026)
@@ -136,7 +137,8 @@
 
 ### Resources : 
 - Fonts : 
-    - Perfect DOS VGA 437 by Zeh Fernando (zeh@zehfernando.com) 
+    - Perfect DOS VGA 437 by Zeh Fernando (zeh@zehfernando.com)
+    - DM Mono : Copyright 2020 The DM Mono Project Authors (https://www.github.com/googlefonts/dm-mono)
 - Images : 
 - Video : 
 - Sound/Music : 

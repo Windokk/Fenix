@@ -54,7 +54,7 @@ prot32:
     wrmsr
 
     mov eax, cr0
-    or  eax, (1 << 31)      ; PG
+    or  eax, (1 << 31) | (1 << 16) | (1 << 5) | (1 << 1)      ; PG+ WP + NE + MP
     mov cr0, eax
     jmp 0x08:long64         ; far jump to 64-bit CS
 

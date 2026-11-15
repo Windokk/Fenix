@@ -1,77 +1,8 @@
 #include "graphics/gfx.h"
-#include "fonts/dos_vga_437.h"
+#include "fonts/font.h"
+#include "cpu/smp.h"
 
-// Arrow cursor (16 wide x 16 tall): 0=transparent, 1=white, 2=black outline
-#define CURSOR_W 16
-#define CURSOR_H 16
-
-static const uint8_t cursor_bitmap[CURSOR_H][CURSOR_W] = {
-    {1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {1,1,2,0,0,0,0,0,0,0,0,0,0,0,0,0},
-    {1,1,1,2,0,0,0,0,0,0,0,0,0,0,0,0},
-    {1,1,1,1,2,0,0,0,0,0,0,0,0,0,0,0},
-    {1,1,1,1,1,2,0,0,0,0,0,0,0,0,0,0},
-    {1,1,1,1,1,1,2,0,0,0,0,0,0,0,0,0},
-    {1,1,1,1,1,1,1,2,0,0,0,0,0,0,0,0},
-    {1,1,1,1,1,1,1,1,2,0,0,0,0,0,0,0},
-    {1,1,1,1,1,1,1,1,1,2,0,0,0,0,0,0},
-    {1,1,1,1,1,2,2,2,2,2,0,0,0,0,0,0},
-    {1,1,2,1,1,2,0,0,0,0,0,0,0,0,0,0},
-    {1,2,2,2,1,1,2,0,0,0,0,0,0,0,0,0},
-    {2,2,0,2,1,1,2,2,0,0,0,0,0,0,0,0},
-    {0,0,0,0,2,1,1,2,0,0,0,0,0,0,0,0},
-    {0,0,0,0,2,1,1,2,0,0,0,0,0,0,0,0},
-    {0,0,0,0,2,2,2,2,0,0,0,0,0,0,0,0}
-};
-
-static uint32_t cursor_bg[CURSOR_H * CURSOR_W];
-static int32_t  cursor_saved_x = -1;
-static int32_t  cursor_saved_y = -1;
-
-void gfx_save_cursor_bg(int32_t x, int32_t y) {
-    uint32_t *fb = (uint32_t *)video_info.virt_addr;
-    for (int row = 0; row < CURSOR_H; row++) {
-        for (int col = 0; col < CURSOR_W; col++) {
-            int px = x + col, py = y + row;
-            if (px >= 0 && px < video_info.width &&
-                py >= 0 && py < video_info.height)
-                cursor_bg[row * CURSOR_W + col] = fb[py * (video_info.pitch / (video_info.bits / 8)) + px];
-            else
-                cursor_bg[row * CURSOR_W + col] = 0;
-        }
-    }
-    cursor_saved_x = x;
-    cursor_saved_y = y;
-}
-
-void gfx_restore_cursor_bg() {
-    if (cursor_saved_x < 0) return;
-    uint32_t *fb = (uint32_t *)video_info.virt_addr;
-    for (int row = 0; row < CURSOR_H; row++) {
-        for (int col = 0; col < CURSOR_W; col++) {
-            int px = cursor_saved_x + col, py = cursor_saved_y + row;
-            if (px >= 0 && px < video_info.width &&
-                py >= 0 && py < video_info.height)
-                fb[py * (video_info.pitch / (video_info.bits / 8)) + px] = cursor_bg[row * CURSOR_W + col];
-        }
-    }
-}
-
-void gfx_draw_cursor(int32_t x, int32_t y) {
-    uint32_t *fb = (uint32_t *)video_info.virt_addr;
-    for (int row = 0; row < CURSOR_H; row++) {
-        for (int col = 0; col < CURSOR_W; col++) {
-            uint8_t pixel = cursor_bitmap[row][col];
-            if (pixel == 0) continue;
-            int px = x + col, py = y + row;
-            if (px < 0 || px >= video_info.width ||
-                py < 0 || py >= video_info.height) continue;
-            fb[py * (video_info.pitch / (video_info.bits / 8)) + px] = (pixel == 1) ? 0xFFFFFF : 0x000000;
-        }
-    }
-}
-
-void gfx_draw_pixel(int32_t x, int32_t y, uint32_t r, uint32_t g, uint32_t b)
+void gfx_draw_pixel(uint32_t x, uint32_t y, uint32_t r, uint32_t g, uint32_t b)
 {
 
     if (x < 0 || y < 0 || x >= video_info.width || y >= video_info.height) {
@@ -81,12 +12,13 @@ void gfx_draw_pixel(int32_t x, int32_t y, uint32_t r, uint32_t g, uint32_t b)
     uint32_t color = (r << 16) | (g << 8) | b;
 
     // Write the pixel to the framebuffer
-    ((uint32_t*)video_info.virt_addr)[y * (video_info.pitch / (video_info.bits / 8)) + x] = color;
+    get_fb_address()[y * (video_info.pitch / (video_info.bits / 8)) + x] = color;
     
+    dirty_add(x, y, x, y);
 }
 
-void gfx_draw_line(int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t r, uint32_t g, uint32_t b) {
-
+void gfx_draw_line(uint32_t x1, uint32_t y1, uint32_t x2, uint32_t y2, uint32_t r, uint32_t g, uint32_t b)
+{
     if ((x1 < 0 && x2 < 0) || (x1 >= video_info.width && x2 >= video_info.width) ||
         (y1 < 0 && y2 < 0) || (y1 >= video_info.height && y2 >= video_info.height)) {
         return;
@@ -113,7 +45,7 @@ void gfx_draw_line(int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t r, u
             y = y2;
             xe = x1;
         }
-        ((uint32_t*)video_info.virt_addr)[y * (video_info.pitch / (video_info.bits / 8)) + x] = color;
+        get_fb_address()[y * (video_info.pitch / (video_info.bits / 8)) + x] = color;
 
         for(; x < xe; ){
             x=x+1;
@@ -131,7 +63,7 @@ void gfx_draw_line(int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t r, u
                 }
                 px=px+2*(dy1-dx1);
             }
-            ((uint32_t*)video_info.virt_addr)[y * (video_info.pitch / (video_info.bits / 8)) + x] = color;
+            get_fb_address()[y * (video_info.pitch / (video_info.bits / 8)) + x] = color;
         }
     }
     else{
@@ -146,7 +78,7 @@ void gfx_draw_line(int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t r, u
             y=y2;
             ye=y1;
         }
-        ((uint32_t*)video_info.virt_addr)[y * (video_info.pitch / (video_info.bits / 8)) + x] = color;
+        get_fb_address()[y * (video_info.pitch / (video_info.bits / 8)) + x] = color;
         
         for(; y < ye; ){
             y = y + 1;
@@ -163,32 +95,14 @@ void gfx_draw_line(int32_t x1, int32_t y1, int32_t x2, int32_t y2, uint32_t r, u
                 }
                 py = py + 2 * (dx1 - dy1);
             }
-            ((uint32_t*)video_info.virt_addr)[y * (video_info.pitch / (video_info.bits / 8)) + x] = color;
+            get_fb_address()[y * (video_info.pitch / (video_info.bits / 8)) + x] = color;
         }
     }
+
+    dirty_add(x1, y1, x2, y2);
 }
 
-void gfx_draw_rectangle(int32_t x, int32_t y, int32_t width, int32_t height,  uint32_t r, uint32_t g, uint32_t b)
-{
-    if (x + width < 0 || x >= video_info.width || 
-        y + height < 0 || y >= video_info.height) {
-        return;
-    }
-
-    // Draw the top edge
-    gfx_draw_line(x, y, x + width, y, r, g, b);
-
-    // Draw the bottom edge
-    gfx_draw_line(x, y + height, x + width, y + height, r, g, b);
-
-    // Draw the left edge
-    gfx_draw_line(x, y, x, y + height, r, g, b);
-
-    // Draw the right edge
-    gfx_draw_line(x + width, y, x + width, y + height, r, g, b);
-}
-
-void gfx_draw_filled_rectangle(int32_t x, int32_t y, int32_t width, int32_t height,  uint32_t r, uint32_t g, uint32_t b)
+void gfx_draw_rectangle(uint32_t x, uint32_t y, uint32_t width, uint32_t height,  uint32_t r, uint32_t g, uint32_t b)
 {
     int32_t x0 = x < 0 ? 0 : x;
     int32_t y0 = y < 0 ? 0 : y;
@@ -197,19 +111,45 @@ void gfx_draw_filled_rectangle(int32_t x, int32_t y, int32_t width, int32_t heig
 
     if (x0 >= x1 || y0 >= y1) return;
 
+    // Draw the top edge
+    gfx_draw_line(x0, y0, x1, y0, r, g, b);
+
+    // Draw the bottom edge
+    gfx_draw_line(x0, y1, x1, y1, r, g, b);
+
+    // Draw the left edge
+    gfx_draw_line(x0, y0, x0, y1, r, g, b);
+
+    // Draw the right edge
+    gfx_draw_line(x1, y0, x1, y1, r, g, b);
+
+    dirty_add(x0, y0, x1, y1);
+}
+
+void gfx_draw_filled_rectangle(uint32_t x, uint32_t y, uint32_t width, uint32_t height,  uint32_t r, uint32_t g, uint32_t b)
+{
+    uint32_t x0 = (int32_t)x < 0 ? 0 : x;
+    uint32_t y0 = (int32_t)y < 0 ? 0 : y;
+    uint32_t x1 = x + width  > video_info.width  ? video_info.width  : x + width;
+    uint32_t y1 = y + height > video_info.height ? video_info.height : y + height;
+
+    if (x0 >= x1 || y0 >= y1) return;
+
     uint32_t color = (r << 16) | (g << 8) | b;
 
     for (int32_t y_ = y0; y_ < y1; y_++) {
         for (int32_t x_ = x0; x_ < x1; x_++) {
-            ((uint32_t*)video_info.virt_addr)[y_ * (video_info.pitch / (video_info.bits / 8)) + x_] = color;
+            get_fb_address()[y_ * (video_info.pitch / (video_info.bits / 8)) + x_] = color;
         }
     }
+
+    dirty_add(x0, y0, x1, y1);
 }
 
-void gfx_draw_circle(int32_t centerX, int32_t centerY, int32_t radius, uint32_t r, uint32_t g, uint32_t b)
+void gfx_draw_circle(uint32_t centerX, uint32_t centerY, uint32_t radius, uint32_t r, uint32_t g, uint32_t b)
 {
-    if (centerX - radius < 0 || centerX + radius > video_info.width ||
-        centerY - radius < 0 || centerY + radius > video_info.height) {
+    if ((int32_t)centerX - (int32_t)radius < 0 || centerX + radius > video_info.width ||
+        (int32_t)centerY - (int32_t)radius < 0 || centerY + radius > video_info.height) {
         return;
     }
             
@@ -219,37 +159,36 @@ void gfx_draw_circle(int32_t centerX, int32_t centerY, int32_t radius, uint32_t 
     // Calculate the maximum x distance from the center
     l = (int) radius * COS(PI / 4);
 
-    uint32_t* framebuffer_virt_addr = ((uint32_t*)video_info.virt_addr);
-
     for (int x = 0; x <= l; x++) {
         // Calculate y based on the Pythagorean theorem for the circle
         int y = (int) sqrt((double) (radius * radius) - (x * x));
 
         // Draw the four symmetric points of the circle relative to the center (centerX, centerY)
-        framebuffer_virt_addr[(centerY + y) * (video_info.pitch / (video_info.bits / 8)) + (centerX + x)] = color;
-        framebuffer_virt_addr[(centerY - y) * (video_info.pitch / (video_info.bits / 8)) + (centerX + x)] = color;
-        framebuffer_virt_addr[(centerY + y) * (video_info.pitch / (video_info.bits / 8)) + (centerX - x)] = color;
-        framebuffer_virt_addr[(centerY - y) * (video_info.pitch / (video_info.bits / 8)) + (centerX - x)] = color;
+        get_fb_address()[(centerY + y) * (video_info.pitch / (video_info.bits / 8)) + (centerX + x)] = color;
+        get_fb_address()[(centerY - y) * (video_info.pitch / (video_info.bits / 8)) + (centerX + x)] = color;
+        get_fb_address()[(centerY + y) * (video_info.pitch / (video_info.bits / 8)) + (centerX - x)] = color;
+        get_fb_address()[(centerY - y) * (video_info.pitch / (video_info.bits / 8)) + (centerX - x)] = color;
 
-        framebuffer_virt_addr[(centerY + x) * (video_info.pitch / (video_info.bits / 8)) + (centerX + y)] = color;
-        framebuffer_virt_addr[(centerY - x) * (video_info.pitch / (video_info.bits / 8)) + (centerX + y)] = color;
-        framebuffer_virt_addr[(centerY + x) * (video_info.pitch / (video_info.bits / 8)) + (centerX - y)] = color;
-        framebuffer_virt_addr[(centerY - x) * (video_info.pitch / (video_info.bits / 8)) + (centerX - y)] = color;
+        get_fb_address()[(centerY + x) * (video_info.pitch / (video_info.bits / 8)) + (centerX + y)] = color;
+        get_fb_address()[(centerY - x) * (video_info.pitch / (video_info.bits / 8)) + (centerX + y)] = color;
+        get_fb_address()[(centerY + x) * (video_info.pitch / (video_info.bits / 8)) + (centerX - y)] = color;
+        get_fb_address()[(centerY - x) * (video_info.pitch / (video_info.bits / 8)) + (centerX - y)] = color;
     }
+
+    
+    dirty_add(centerX - radius, centerY - radius, centerX + radius, centerY + radius);
 }
 
-void gfx_draw_filled_circle(int32_t centerX, int32_t centerY, int32_t radius, uint32_t r, uint32_t g, uint32_t b)
+void gfx_draw_filled_circle(uint32_t centerX, uint32_t centerY, uint32_t radius, uint32_t r, uint32_t g, uint32_t b)
 {
-    int x, y;
+    uint32_t x, y;
 
-    if (centerX - radius < 0 || centerX + radius > video_info.width ||
-        centerY - radius < 0 || centerY + radius > video_info.height) {
+    if ((int32_t)centerX - (int32_t)radius < 0 || centerX + radius > video_info.width ||
+        (int32_t)centerY - (int32_t)radius < 0 || centerY + radius > video_info.height) {
         return;
     }
 
     uint32_t color = (r << 16) | (g << 8) | b;
-
-    uint32_t* framebuffer_virt_addr = ((uint32_t*)video_info.virt_addr);
 
     // Iterate through all possible (x, y) positions within the bounding box of the circle
     for (y = -radius; y <= radius; y++) {
@@ -257,10 +196,12 @@ void gfx_draw_filled_circle(int32_t centerX, int32_t centerY, int32_t radius, ui
             // Check if the current point (x, y) is inside or on the circle using the equation (x^2 + y^2 <= r^2)
             if ((x * x) + (y * y) <= (radius * radius)) {
                 // Set pixel at (centerX + x, centerY + y) to the color
-                framebuffer_virt_addr[(centerY + y) * (video_info.pitch / (video_info.bits / 8)) + (centerX + x)] = color;
+                get_fb_address()[(centerY + y) * (video_info.pitch / (video_info.bits / 8)) + (centerX + x)] = color;
             }
         }
     }
+
+    dirty_add(centerX - radius, centerY - radius, centerX + radius, centerY + radius);
 }
 
 // Helpers
@@ -312,7 +253,7 @@ static inline uint8_t gfx_expand_alpha(uint8_t value)
 }
 
 // Alpha Blend
-static inline uint32_t gfx_blend(uint32_t dst,uint8_t r,uint8_t g,uint8_t b,uint8_t alpha)
+static inline uint32_t gfx_blend(uint32_t dst, uint8_t r, uint8_t g, uint8_t b, uint8_t alpha)
 {
     if (alpha == 255)
     {
@@ -343,7 +284,7 @@ static inline uint32_t gfx_blend(uint32_t dst,uint8_t r,uint8_t g,uint8_t b,uint
 }
 
 // Draw Character
-int32_t gfx_draw_char(int32_t x, int32_t y, char c, uint32_t r, uint32_t g, uint32_t b)
+int32_t gfx_draw_char(uint32_t x, uint32_t y, char c, uint32_t r, uint32_t g, uint32_t b)
 {
     // Validate character range
     if ((uint8_t)c < FONT_FIRST /* Always false : || (uint8_t)c > FONT_LAST*/)
@@ -356,9 +297,9 @@ int32_t gfx_draw_char(int32_t x, int32_t y, char c, uint32_t r, uint32_t g, uint
         (uint8_t)c - FONT_FIRST;
 
     const Glyph *glyphs =
-        &dos_vga_437Glyphs[glyph_index];
+        &FONT_GLYPHS[glyph_index];
     const uint8_t *glyph =
-        &dos_vga_437[glyphs->offset];
+        &FONT_BITMAP[glyphs->offset];
 
     const uint32_t glyph_width =
         glyphs->width;
@@ -370,10 +311,6 @@ int32_t gfx_draw_char(int32_t x, int32_t y, char c, uint32_t r, uint32_t g, uint
     const uint32_t bytes_per_row =
         (glyph_width + pixels_per_byte - 1) /
         pixels_per_byte;
-
-    // Framebuffer
-    uint32_t *fb =
-        (uint32_t *)video_info.virt_addr;
 
     // Render glyph
     for (uint32_t row = 0;
@@ -432,7 +369,7 @@ int32_t gfx_draw_char(int32_t x, int32_t y, char c, uint32_t r, uint32_t g, uint
 
             // Destination framebuffer pixel
             uint32_t *dst =
-                &fb[
+                &get_fb_address()[
                     py * (video_info.pitch / (video_info.bits / 8)) +
                     px
                 ];
@@ -447,6 +384,8 @@ int32_t gfx_draw_char(int32_t x, int32_t y, char c, uint32_t r, uint32_t g, uint
         }
     }
 
+    dirty_add(x, y, x + glyph_width, y + FONT_HEIGHT);
+    
     // Advance cursor
     return (int32_t)(
         glyph_width +
@@ -455,7 +394,7 @@ int32_t gfx_draw_char(int32_t x, int32_t y, char c, uint32_t r, uint32_t g, uint
 }
 
 // Draw Text
-void gfx_draw_text(int32_t x,int32_t y,const char *str,uint32_t r,uint32_t g,uint32_t b)
+void gfx_draw_text(uint32_t x, uint32_t y, const char *str, uint32_t r, uint32_t g, uint32_t b)
 {
     int32_t cx = x;
 
@@ -513,7 +452,7 @@ int32_t gfx_text_width(const char *str)
                 (uint8_t)*str - FONT_FIRST;
 
             line_width +=
-                dos_vga_437Glyphs[glyph_index].width +
+                FONT_GLYPHS[glyph_index].width +
                 FONT_SPACING;
         }
 

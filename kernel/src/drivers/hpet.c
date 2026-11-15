@@ -39,5 +39,5 @@ uint64_t hpet_read_counter(void){
 
 uint64_t hpet_get_nanos(void){
     volatile uint64_t *counter_value_reg = hpet_regs+0x0F0/8;
-    return *counter_value_reg * (freq_hz / 1000000);
+    return *counter_value_reg * (1000000000 / freq_hz);
 }

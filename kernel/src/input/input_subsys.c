@@ -3,8 +3,7 @@
 #include "cpu/smp.h"
 
 #include "drivers/video.h"
-
-#include "graphics/gfx.h"
+#include "drivers/hpet.h"
 
 #include "stdio.h"
 
@@ -24,28 +23,65 @@ static bool left_alt_held       = false;
 static bool right_alt_held      = false;
 static bool caps_lock_on        = false;
 
-int32_t mouse_x, mouse_y;
+uint32_t mouse_x, mouse_y;
 int32_t mouse_wheel;
 uint8_t mouse_buttons;
 
+int32_t mouse_x_f = 0;
+int32_t mouse_y_f = 0;
+
+uint64_t mouse_last_time = 0;
+
 semaphore_t kb_sem;
+
+extern video_rect_t dirty_rect;
+
+#define V_LOW 300
+#define V_HIGH 3000
+#define G_MIN 45875
+#define G_MAX 126608
 
 void init_input(){
     sem_init(&kb_sem, 0);
 }
 
-void input_mouse_move(int8_t dx, int8_t dy){
+void input_mouse_move(int32_t dx, int32_t dy){
 
-    mouse_x = CLAMP(mouse_x + dx, 0, video_info.width);
-    mouse_y = CLAMP(mouse_y + dy, 0, video_info.height);
+    uint64_t now = hpet_get_nanos();
 
-    gfx_restore_cursor_bg();
+    uint64_t dt = max(now - mouse_last_time, 1);
 
-    gfx_save_cursor_bg(mouse_x, mouse_y);
-    gfx_draw_cursor(mouse_x, mouse_y);
+    mouse_last_time = now;
+
+    uint64_t mouse_delta_pos = abs(dx) + abs(dy);
+
+    uint64_t speed = mouse_delta_pos * 1000000000 / (dt == 0 ? 1 : dt);
+    
+    uint64_t gain = 65536;
+
+    if(!(dt == 0 || dt > 100000000))
+    {
+        if(speed <= V_LOW)
+            gain = G_MIN;
+        else if(speed >= V_HIGH)
+            gain = G_MAX;
+        else
+            gain = G_MIN + (G_MAX - G_MIN) * ((int64_t)speed - (int64_t)V_LOW) / ((int64_t)V_HIGH - (int64_t)V_LOW);
+    }
+    dirty_add(mouse_x,mouse_y,mouse_x+MOUSE_W,mouse_y+MOUSE_H);
+
+    mouse_x_f = CLAMP(mouse_x_f + ((int64_t)dx * (int64_t)gain), 0, (int32_t)(video_info.width - 1) << 16);
+    mouse_y_f = CLAMP(mouse_y_f + ((int64_t)dy * (int64_t)gain), 0, (int32_t)(video_info.height - 1) << 16);
+
+    mouse_x = mouse_x_f >> 16;
+    mouse_y = mouse_y_f >> 16;
+
+    dirty_add(mouse_x,mouse_y,mouse_x+MOUSE_W,mouse_y+MOUSE_H);
+    
+    present();
 }
 
-void input_mouse_wheel(int8_t dw){
+void input_mouse_wheel(int32_t dw){
     mouse_wheel = mouse_wheel + dw;
 }
 

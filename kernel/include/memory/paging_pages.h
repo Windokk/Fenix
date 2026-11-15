@@ -105,39 +105,42 @@ typedef union pte_struct {
     } fields;
 } __attribute__((packed)) pte_t;
 
-extern pml4e_t pml4e[512];
-extern pdpe_t  pdpe[512];
-extern pde_t   pde[512];
-extern pte_t   pte[2048]; /* 4 PDEs × 512 = 8 MB */
-
-extern pdpe_t  pdpe_user[512];
-extern pde_t   pde_user[512];
-extern pte_t   pte_user[512];
-
-extern pdpe_t  pdpe_krnluser[512];
-extern pde_t   pde_krnluser[512];
-extern pte_t   pte_krnluser[512];
-
-extern pdpe_t  pdpe_video[512];
-extern pde_t   pde_video[512];
-extern pte_t   pte_video[2048];
-
 // P4[0x1C8] → 0xFFFFE40000000000  (dynamic MMIO mapping pool)
 // Used by uacpi_kernel_map() for arbitrary physical addresses not covered by
 // the kernel or ACPI table windows.  512 PTEs = 2 MB of virtual address space.
 #define MMIO_POOL_BASE    0xFFFFE40000000000ULL
-#define MMIO_NUM_PDS      16
-#define MMIO_POOL_PAGES   (MMIO_NUM_PDS * 512)
+#define MMIO_NUM_PDPE      16
+#define MMIO_POOL_PAGES   (MMIO_NUM_PDPE * 512)
 
-extern pdpe_t  pdpe_mmio[512];
-extern pde_t   pde_mmio[512];
-extern pte_t   pte_mmio[MMIO_POOL_PAGES];
+#define KERNEL_NUM_PDE 70
+
+extern pml4e_t pml4es[512];
+
+extern pdpe_t  kernel_pdpes[512];
+extern pde_t   kernel_pdes[512]; // Only 70 out of 512 are used
+extern pte_t   kernel_ptes[KERNEL_NUM_PDE * 512]; /* 70 PDEs × 512 = 140 MB */
+
+extern pdpe_t  user_pdpes[512];
+extern pde_t   user_pdes[512];
+extern pte_t   user_ptes[512];
+
+extern pdpe_t  krnluser_pdpes[512];
+extern pde_t   krnluser_pdes[512];
+extern pte_t   krnluser_ptes[512];
+
+extern pdpe_t  video_pdpes[512];
+extern pde_t   video_pdes[512];
+extern pte_t   video_ptes[2048];
+
+extern pdpe_t  mmio_pdpes[512];
+extern pde_t   mmio_pdes[512];
+extern pte_t   mmio_ptes[MMIO_POOL_PAGES];
 
 // P4[0x1E0] → 0xFFFFF00000000000
 // page 0: LAPIC  page 1+: IOAPICs (1 page each, up to 4)
-extern pdpe_t  pdpe_apic[512];
-extern pde_t   pde_apic[512];
-extern pte_t   pte_apic[512];
+extern pdpe_t  apic_pdpes[512];
+extern pde_t   apic_pdes[512];
+extern pte_t   apic_ptes[512];
 
 extern pde_t  pde_efi_identity[3][512];  // 3 PD tables + PDE_USER = 4 Go
 

@@ -42,7 +42,16 @@ start_efi64:
     mov rax, p3_table - KERNEL_VMA
     or rax, 0b11
     mov rbx, r13                      ; rbx =  phys adress of PML4 from GRUB
+    
+    ; firmware page tables are read-only with CR0.WP set
+    mov rcx, cr0
+    btr rcx, 16
+    mov cr0, rcx
+    bts rcx, 16
+
     mov [rbx + 256*8], rax            ; PML4[256] from GRUB -> p3_table (high)
+
+    mov cr0, rcx ; rcx = original CR0 again, restored after the write
 
     ; (CR3 is NOT changed here: we're still using the GRUB tables, which have now been updated)
 

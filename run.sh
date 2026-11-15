@@ -10,7 +10,8 @@ qemu-system-x86_64 -cdrom build/fenix.iso -serial stdio -m 4096 -smp 4 -machine 
     -device qemu-xhci,id=xhci \
     -device usb-hub,bus=xhci.0,id=xhci-hub,port=2 \
     -device usb-mouse,bus=xhci.0,port=2.3 \
-    -device usb-kbd,bus=xhci.0,port=2.4
+    -device usb-kbd,bus=xhci.0,port=2.4 \
+    -display sdl,gl=on
 
 # To run on SeaBios :
 #make

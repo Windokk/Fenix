@@ -78,6 +78,7 @@ extern void vector64(void);
 extern void vector240(void);
 
 struct isr_ctx_struct {
+	uint64_t cr2;
 	uint64_t r15;
 	uint64_t r14;
 	uint64_t r13;

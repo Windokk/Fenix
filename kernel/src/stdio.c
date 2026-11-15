@@ -6,7 +6,11 @@
 
 #include "interrupts/idt.h"
 
+#include "drivers/video.h"
+
 #define CURSOR_W 8
+
+extern video_rect_t dirty_rect;
 
 static int32_t fb_cx = 0;
 static int32_t fb_cy = 0;
@@ -34,6 +38,8 @@ void cursor_render(bool on){
         gfx_draw_filled_rectangle(cursor_px, cursor_py + GFX_LINE_HEIGHT - 10, CURSOR_W, 2, 255, 255, 255);
     else
         gfx_draw_filled_rectangle(cursor_px, cursor_py + GFX_LINE_HEIGHT - 10, CURSOR_W, 2, 0, 0, 0);
+
+    present();
 }
 
 void cursor_show(void) {
@@ -87,13 +93,18 @@ void cursor_blink_tick(void) {
 
 static void fb_scroll() {
     if (!video_info.mapped) return;
-    uint32_t *fb = (uint32_t *)video_info.virt_addr;
+
+    uint32_t *fb = (uint32_t *)get_fb_address();
     uint32_t  w  = video_info.width;
     uint32_t  h  = video_info.height;
     memmove(fb, fb + w * GFX_LINE_HEIGHT, w * (h - GFX_LINE_HEIGHT) * sizeof(uint32_t));
     memset(fb + w * (h - GFX_LINE_HEIGHT), 0, w * GFX_LINE_HEIGHT * sizeof(uint32_t));
     fb_cy = h - GFX_LINE_HEIGHT;
     cursor_sync();
+
+    dirty_add(0,0,video_info.width,video_info.height);
+
+    present();
 }
 
 int32_t console_cursor_x(void) {
@@ -108,19 +119,22 @@ void console_clear(void) {
         restore_interrupts(_flags);
         return;
     }
-    uint32_t *fb = (uint32_t *)video_info.virt_addr;
-    memset(fb, 0, video_info.width * video_info.height * sizeof(uint32_t));
+    
+    memset((uint32_t *)get_fb_address(), 0, video_info.width * video_info.height * sizeof(uint32_t));
     fb_cx = 0;
     fb_cy = 0;
     cursor_sync();
 
+    dirty_add(0, 0, video_info.width, video_info.height);
+
     unlock(&fb_lock);
     restore_interrupts(_flags);
+
+    present();
 }
 
 void console_erase_chars(int32_t pixel_width) {
     uintptr_t _flags = disable_interrupts();
-    lock(&fb_lock);
 
     if(shell_line_erased){
         redraw_shell_prompt();
@@ -140,14 +154,20 @@ void console_erase_chars(int32_t pixel_width) {
     if (fb_cx < 0) fb_cx = 0;
     gfx_draw_filled_rectangle(fb_cx, fb_cy, pixel_width, GFX_LINE_HEIGHT, 0, 0, 0);
     cursor_sync();
-    unlock(&fb_lock);
     restore_interrupts(_flags);
+
+    present();
 }
 
 void fb_set_color(uint8_t r, uint8_t g, uint8_t b){
+    
+    lock(&fb_lock);
+
     fb_color_r = r;
     fb_color_g = g;
     fb_color_b = b;
+
+    unlock(&fb_lock);
 }
 
 static void fb_putchar(char c) {
@@ -171,6 +191,8 @@ void printf(const char* format, ...) {
 	va_start(args, format);
 	vprintf(format, args);
 	va_end(args);
+
+    present();
 }
 
 int snprintf(char* buf, size_t n, const char *format, ...)
@@ -179,6 +201,7 @@ int snprintf(char* buf, size_t n, const char *format, ...)
 	va_start(args, format);
 	int ret = vsnprintf(buf, n, format, args);
 	va_end(args);
+
     return ret;
 }
 
@@ -271,6 +294,8 @@ void klog_print(uint8_t r, uint8_t g, uint8_t b, const char* prefix, const char*
         unlock(&fb_lock);
         restore_interrupts(_flags);
 
+        present();
+
         return;
     }
     vprintf_unlocked(prefix, args);
@@ -279,6 +304,8 @@ void klog_print(uint8_t r, uint8_t g, uint8_t b, const char* prefix, const char*
 	va_end(args);
     unlock(&fb_lock);
     restore_interrupts(_flags);
+
+    present();
 }
 
 void console_shell_line_begin(const char *prompt, char *buf, int *len, int32_t *widths)

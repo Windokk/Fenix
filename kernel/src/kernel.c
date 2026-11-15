@@ -117,6 +117,8 @@ void kernel_premain(unsigned long magic, multiboot_info_t* mbi_phys) {
 
     init_heap();
 
+    init_shadow_buffer();
+
     KLOG_INFO("KERNEL", "CPU features detection");
 
     cpu_get_features();

@@ -60,10 +60,14 @@ isr_common_stub:
     push r13
     push r14
     push r15
+    mov rax, cr2
+    push rax
     
     ; call handler
     mov rdi, rsp
     call interrupt_handler
+
+    add rsp, 8
 
     ; restore registers
     pop r15

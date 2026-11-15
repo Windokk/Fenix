@@ -101,6 +101,7 @@ static const unsigned char hid_to_ascii[256] = {
 };
 
 mouse_pending_t mouse_state;
+static uint8_t prev_mouse_buttons;
 semaphore_t mouse_sem;
 
 pci_device_id_t id_compat_table[2] = {
@@ -444,7 +445,7 @@ static void xhci_send_set_idle(uint32_t slot_id){
     *(volatile uint32_t*)(xhci_bar0 + xhci_dboff + slot_id * 4) = 1; // Doorbell
 }
 
-static void xhci_legacy_handoff(uint8_t* bar0){
+static void xhci_legacy_handoff(uint8_t* bar0, uint64_t mapped_size){
     uint32_t hccparams1 = *(volatile uint32_t*)(bar0 + XHCI_CAP_HCCPARAMS1);
     uint32_t xecp = (hccparams1 >> 16) & 0xFFFF;
 
@@ -457,6 +458,13 @@ static void xhci_legacy_handoff(uint8_t* bar0){
 
     // Walk the linked list of Extended Capabilities looking for ID 0x01
     while(1){
+        // Never read outside of what is mapped. We need 8 bytes because
+        // USBLEGCTLSTS sits right after USBLEGSUP.
+        if((uint64_t)ec_offset + 8 > mapped_size){
+            KLOG_WARN("XHCI", "Extended Capabilities list exceeds mapped BAR, skipping handoff");
+            return;
+        }
+
         uint32_t ec_dword = *(volatile uint32_t*)(bar0 + ec_offset);
         uint8_t cap_id = ec_dword & 0xFF;
         uint8_t next_ptr = (ec_dword >> 8) & 0xFF;
@@ -844,22 +852,25 @@ void xhci_irq_handler(isr_ctx_t* ctx){
                     }
                     else if(slot_protocol[slot_id] == 2){
                         //mouse
-                        uint8_t mouse_buttons = hid_buf[slot_id][0];
+                        uint8_t mouse_buttons = hid_buf[slot_id][0] & 0x07;
                         int8_t mouse_delta_x = (int8_t)hid_buf[slot_id][1];
                         int8_t mouse_delta_y = (int8_t)hid_buf[slot_id][2];
                         int8_t mouse_delta_wheel = (int8_t)hid_buf[slot_id][3];
 
-                        uintptr_t flags = disable_interrupts();
+                        __atomic_fetch_add(&mouse_state.pending_dx, mouse_delta_x, __ATOMIC_SEQ_CST);
+                        __atomic_fetch_add(&mouse_state.pending_dy, mouse_delta_y, __ATOMIC_SEQ_CST);
+                        __atomic_fetch_add(&mouse_state.pending_wheel, mouse_delta_wheel, __ATOMIC_SEQ_CST);
+                        
+                        uint8_t changed = mouse_buttons ^ prev_mouse_buttons;
+                        uint8_t pressed = mouse_buttons & changed;
+                        uint8_t released = ~mouse_buttons & changed;
 
-                        mouse_state.pending_dx = mouse_delta_x;
-                        mouse_state.pending_dy = mouse_delta_y;
-                        mouse_state.buttons = mouse_buttons;
-                        mouse_state.pending_wheel = mouse_delta_wheel;
-                        mouse_state.dirty = 1;
+                        prev_mouse_buttons = mouse_buttons;
+
+                        __atomic_fetch_or(&mouse_state.buttons_pressed, pressed, __ATOMIC_SEQ_CST);
+                        __atomic_fetch_or(&mouse_state.buttons_released, released, __ATOMIC_SEQ_CST);
 
                         sem_signal(&mouse_sem);
-
-                        restore_interrupts(flags);
                     }
 
                     trb_t normal_trb = {0};
@@ -1210,33 +1221,42 @@ int xhci_probe(pci_device_t* device){
         return -1;
     }
 
-    // Must happen before HCRST and before we touch any operational register:
-    // ask the firmware to give up ownership of the controller if it holds it.
-    xhci_legacy_handoff(xhci_bar0);
-
-    uint8_t caplength = *(volatile uint8_t*)(xhci_bar0 + 0x00);
-
-    uint32_t rtsoff    = *(volatile uint32_t*)(xhci_bar0 + 0x18) & ~(uint32_t)0x1F;
-
-    uint8_t max_slots = *(volatile uint8_t*)(xhci_bar0 + XHCI_CAP_HCSPARAMS1);
-
-    uint8_t max_ports = (*(volatile uint32_t*)(xhci_bar0 + XHCI_CAP_HCSPARAMS1) >> 24) & 0xFF;
-
-    uint32_t dboff = *(volatile uint32_t*)(xhci_bar0 + 0x14) & ~(uint32_t)0x3;
+    // The first 4 KiB mapping is only used to read the Capability Registers,
+    // which are all located in the first few bytes of the BAR.
+    uint8_t  caplength  = *(volatile uint8_t*)(xhci_bar0 + 0x00);
+    uint32_t hccparams1 = *(volatile uint32_t*)(xhci_bar0 + XHCI_CAP_HCCPARAMS1);
+    uint32_t rtsoff     = *(volatile uint32_t*)(xhci_bar0 + 0x18) & ~(uint32_t)0x1F;
+    uint32_t dboff      = *(volatile uint32_t*)(xhci_bar0 + 0x14) & ~(uint32_t)0x3;
+    uint8_t  max_slots  = *(volatile uint8_t*)(xhci_bar0 + XHCI_CAP_HCSPARAMS1);
+    uint8_t  max_ports  = (*(volatile uint32_t*)(xhci_bar0 + XHCI_CAP_HCSPARAMS1) >> 24) & 0xFF;
     
+    uint64_t xecp_offset = (uint64_t)((hccparams1 >> 16) & 0xFFFF) * 4;
+
     paging_unmap_mmio(xhci_bar0, 0x1000);
+
     uint64_t op_size = caplength + 0x400 + max_ports * 0x10;
-    uint64_t rt_size  = rtsoff + 0x20;
+    uint64_t rt_size = rtsoff + 0x20;
     uint64_t db_size = dboff + 0x4;
     uint64_t map_size = op_size;
     if (rt_size > map_size) map_size = rt_size;
     if (db_size > map_size) map_size = db_size;
+
+    // The Extended Capabilities list may live beyond the operational/runtime/
+    // doorbell registers. Make sure its start (plus a generous window) is mapped.
+    if (xecp_offset != 0 && xecp_offset + 0x1000 > map_size){
+        map_size = xecp_offset + 0x1000;
+    }
+
     xhci_bar0 = paging_map_mmio(bar0_addr, map_size);
 
     if(!xhci_bar0){
         KLOG_ERROR("XHCI", "Failed to map BAR 0 with correct size");
         return -1;
     }
+
+    // Must happen before HCRST and before we touch any operational register:
+    // ask the firmware to give up ownership of the controller if it holds it.
+    xhci_legacy_handoff(xhci_bar0, map_size);
 
     xhci_op   = xhci_bar0 + caplength;
     xhci_ir0  = xhci_bar0 + rtsoff + 0x20;

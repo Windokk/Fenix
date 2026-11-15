@@ -4,7 +4,7 @@
 
 #include "tasks/task.h"
 
-extern int32_t mouse_x, mouse_y;
+extern uint32_t mouse_x, mouse_y;
 extern int32_t mouse_wheel;
 extern uint8_t mouse_buttons;
 
@@ -23,8 +23,8 @@ typedef struct key_event_t{
     bool    caps_lock;
 } key_event_t;
 
-void input_mouse_move(int8_t dx, int8_t dy);
-void input_mouse_wheel(int8_t dw);
+void input_mouse_move(int32_t dx, int32_t dy);
+void input_mouse_wheel(int32_t dw);
 void input_mouse_button(uint8_t btn, bool pressed);
 void input_key_event(key_event_t key_evt);
 

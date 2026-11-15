@@ -109,9 +109,9 @@ typedef struct usb_device_desc_t{
 typedef struct {
     int32_t pending_dx;
     int32_t pending_dy;
-    int8_t  pending_wheel;
-    uint8_t buttons;
-    bool    dirty;
+    int32_t pending_wheel;
+    uint8_t buttons_pressed;
+    uint8_t buttons_released;
 } mouse_pending_t;
 
 extern mouse_pending_t mouse_state;
