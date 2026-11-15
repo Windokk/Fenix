@@ -1,13 +1,17 @@
 <div align="center">
 
-<img src="github/fenix-logo.png" alt="Logo" width="200"/>
+<img src="github/fenix-logo.png" alt="logo" width="200"/>
+
+<br>
 
 # Welcome to Fenix !
+<br>
+<img src="github/demo.webp" alt="demo"/>
 <br>
 <img src="github/shield.svg" alt="shield"/>
 <br>
 
-### A Unix-like operating system kernel (x86_64)
+### A (Unix-like) operating system kernel (x86_64)
 <br>
 </div>
 
